@@ -4,29 +4,24 @@
   const enc = (v) => encodeURIComponent((v ?? "").toString());
 %>
 
-<section class="mx-auto max-w-7xl px-4 pt-5 sm:pt-7 pb-6">
+<section class="wrap">
   <div class="heroWrap" data-aos="fade-up">
     <% if (hero) { %>
-      <div class="heroBg"><img src="<%= hero.cover %>" alt="" class="heroBgImg"></div>
-
+      <div class="heroBg"><img src="<%= hero.cover %>" class="heroBgImg" alt=""></div>
       <div class="heroContent">
         <div class="chip"><i class="ri-fire-line"></i> Spotlight</div>
         <h1 class="heroTitle"><%= hero.name %></h1>
         <p class="heroDesc line-clamp-3"><%= hero.summary || "Discover vertical micro-series on PanStream." %></p>
 
         <div class="heroTags">
-          <% (hero.tags || []).slice(0,4).forEach(t => { %>
-            <span class="tagPill"><%= t %></span>
-          <% }) %>
+          <% (hero.tags || []).slice(0,4).forEach(t => { %><span class="tagPill"><%= t %></span><% }) %>
         </div>
 
         <div class="heroBtns">
           <a class="btnPrimary" href="/watch/<%= hero.code %>/1?lang=<%= lang %>&cover=<%= enc(hero.cover) %>&name=<%= enc(hero.name) %>">
             <i class="ri-play-fill"></i> Play EP 1
           </a>
-          <a class="btnGhost" href="/t/<%= hero.code %>?lang=<%= lang %>">
-            <i class="ri-information-line"></i> Detail
-          </a>
+          <a class="btnGhost" href="/t/<%= hero.code %>?lang=<%= lang %>"><i class="ri-information-line"></i> Detail</a>
         </div>
 
         <div class="heroStats">
@@ -35,17 +30,11 @@
           <div class="statBox"><div class="statLabel">Views</div><div class="statVal"><%= hero.views ?? "-" %></div></div>
         </div>
       </div>
-    <% } else { %>
-      <div class="p-6 sm:p-8">
-        <div class="chip"><i class="ri-alert-line"></i> No Data</div>
-        <h1 class="heroTitle mt-3">PanStream</h1>
-        <p class="heroDesc mt-2">Tidak ada data Home dari API. Coba refresh atau ganti bahasa.</p>
-      </div>
     <% } %>
   </div>
 </section>
 
-<section class="mx-auto max-w-7xl px-4 pb-5">
+<section class="wrap">
   <div class="rowHead rowHeadTight">
     <h2 class="rowTitle">Continue Watching</h2>
     <button id="btnClearContinue" class="rowLink">Clear <i class="ri-delete-bin-6-line"></i></button>
@@ -66,34 +55,31 @@
   </div>
 </section>
 
-<section class="mx-auto max-w-7xl px-4 pb-14">
+<section class="wrap pb-14">
   <div class="rowHead">
     <div>
       <h2 class="rowTitle" data-aos="fade-up">Tonight Picks</h2>
       <div class="rowSub" data-aos="fade-up" data-aos-delay="80">Swipe vibe • quick hits</div>
     </div>
-    <a class="rowLink" href="/search?lang=<%= lang %>&q=love" data-aos="fade-up" data-aos-delay="120">
-      Explore <i class="ri-arrow-right-line"></i>
-    </a>
+    <a class="rowLink" href="/search?lang=<%= lang %>&q=love" data-aos="fade-up" data-aos-delay="120">Explore <i class="ri-arrow-right-line"></i></a>
   </div>
 
   <div class="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-4 mt-4">
     <% safeRows.slice(0, 20).forEach((x, i) => { %>
       <a href="/t/<%= x.code %>?lang=<%= lang %>" class="vCard card" data-aos="zoom-in" data-aos-delay="<%= 20 + (i%10)*35 %>">
         <div class="vPoster">
-          <img data-src="<%= x.cover %>" src="data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///ywAAAAAAQABAAACAUwAOw==" data-lazy="true" class="vPosterImg" alt="<%= x.name %>"/>
+          <img data-src="<%= x.cover %>"
+               src="data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///ywAAAAAAQABAAACAUwAOw=="
+               data-lazy="true" class="vPosterImg" alt="<%= x.name %>">
           <div class="vShade"></div>
           <div class="vBadge"><i class="ri-sparkling-2-line"></i> Pick</div>
-
           <div class="vMeta">
             <div class="vName line-clamp-2"><%= x.name %></div>
             <div class="vMini">
               <span><i class="ri-film-line"></i> <%= x.episodes ?? "-" %></span>
               <span><i class="ri-heart-3-line"></i> <%= x.favorites ?? "-" %></span>
             </div>
-            <% if (x.tagline) { %>
-              <div class="vTagline line-clamp-2"><%= x.tagline %></div>
-            <% } %>
+            <% if (x.tagline) { %><div class="vTagline line-clamp-2"><%= x.tagline %></div><% } %>
           </div>
         </div>
       </a>
