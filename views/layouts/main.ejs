@@ -18,11 +18,7 @@
   <script src="https://cdn.tailwindcss.com"></script>
   <script>
     tailwind.config = {
-      theme: {
-        extend: {
-          fontFamily: { display: ["Unbounded","ui-sans-serif"], body: ["Manrope","ui-sans-serif"] }
-        }
-      }
+      theme: { extend: { fontFamily: { display:["Unbounded","ui-sans-serif"], body:["Manrope","ui-sans-serif"] } } }
     }
   </script>
 
@@ -33,12 +29,11 @@
 </head>
 
 <body class="bg-zinc-950 text-zinc-50 font-body overflow-x-hidden">
-
   <div class="bg-ambient"></div>
 
   <%- include("../partials/navbar", { langs, lang, q }) %>
 
-  <main class="pageWrap">
+  <main class="pageWrap" data-barba="container">
     <%- body %>
   </main>
 
