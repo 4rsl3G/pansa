@@ -1,163 +1,90 @@
-<section class="mx-auto max-w-7xl px-4 pt-6 pb-14">
-  <div class="watchHead" data-aos="fade-up">
-    <div>
-      <div class="text-xs text-zinc-400">Now playing</div>
-      <h1 class="font-display text-xl sm:text-2xl tracking-tight">
-        <%= payload?.name || "Untitled" %>
-        <span class="text-zinc-400">• EP <%= payload?.episode %>/<%= payload?.total %></span>
-      </h1>
-    </div>
+<%
+  const p = payload || {};
+  const v = p.video || {};
+  const coverSafe = (cover || "").replace(/"/g,'&quot;');
+  const titleSafe = (tname || p.name || "").replace(/"/g,'&quot;');
+%>
+
+<section class="wrap pb-14">
+  <div class="watchTop" data-aos="fade-up">
+    <div class="watchNow">Now playing</div>
+    <div class="watchTitle line-clamp-2"><%= p.name %> <span class="muted">• EP <%= ep %>/<%= p.total || "-" %></span></div>
 
     <div class="watchActions">
-      <a class="pill" href="/t/<%= code %>?lang=<%= lang %>"><i class="ri-list-check-2"></i> Episodes</a>
-      <a class="pill" href="/watch/<%= code %>/<%= Math.max(1, ep-1) %>?lang=<%= lang %>&cover=<%= encodeURIComponent(cover||'') %>&name=<%= encodeURIComponent(tname||'') %>"><i class="ri-skip-back-line"></i></a>
-      <a class="pill" href="/watch/<%= code %>/<%= Math.min((payload?.total||ep+1), ep+1) %>?lang=<%= lang %>&cover=<%= encodeURIComponent(cover||'') %>&name=<%= encodeURIComponent(tname||'') %>"><i class="ri-skip-forward-line"></i></a>
+      <button class="pill" id="btnEpisodeSheet"><i class="ri-list-check-2"></i> Episodes</button>
+      <a class="pill" href="/watch/<%= code %>/<%= Math.max(1, ep-1) %>?lang=<%= lang %>&cover=<%= encodeURIComponent(cover||'') %>&name=<%= encodeURIComponent(tname||p.name||'') %>"><i class="ri-skip-back-mini-fill"></i></a>
+      <a class="pill" id="btnNextLink"
+         href="/watch/<%= code %>/<%= Math.min((p.total||ep), ep+1) %>?lang=<%= lang %>&cover=<%= encodeURIComponent(cover||'') %>&name=<%= encodeURIComponent(tname||p.name||'') %>"><i class="ri-skip-forward-mini-fill"></i></a>
     </div>
   </div>
 
-  <div class="watchGrid mt-4">
-    <!-- PLAYER -->
-    <div class="panel overflow-hidden" data-aos="fade-up" data-aos-delay="120">
-      <div id="player" class="pPlayer">
-        <div class="pStage">
-          <video id="video" class="pVideo" playsinline></video>
+  <div class="playerWrap" data-aos="fade-up" data-aos-delay="80">
+    <div class="playerHeader">
+      <div class="chip"><i class="ri-video-line"></i> PanStream Player</div>
+      <div class="chip"><i class="ri-timer-line"></i> Expires in <%= p.expires_in || "-" %>s</div>
+    </div>
 
-          <!-- loading/buffering overlay -->
-          <div id="bufferOverlay" class="pBuffer hidden">
-            <div class="pSpinner"></div>
-            <div class="pBufferText">Loading stream…</div>
-            <button id="btnRetry" class="pRetry hidden"><i class="ri-refresh-line"></i> Retry</button>
-          </div>
+    <div class="playerStage">
+      <video id="psVideo" playsinline webkit-playsinline preload="metadata"></video>
 
-          <!-- top chips -->
-          <div class="pTopChips">
-            <div class="chip2"><i class="ri-live-line text-emerald-300"></i> PanStream Player</div>
-            <div class="chip2"><i class="ri-timer-line"></i> Expires in <%= payload?.expires_in %>s</div>
-          </div>
+      <div class="playerLoading" id="playerLoading">
+        <div class="spin"></div>
+        <div class="loadingTxt">Loading video…</div>
+      </div>
 
-          <!-- controls -->
-          <div id="controls" class="pControls">
-            <div class="pSeekWrap">
-              <div id="seekBar" class="pSeek">
-                <div id="seekFill" class="pSeekFill"></div>
-                <div id="seekKnob" class="pSeekKnob"></div>
-              </div>
-              <div class="pTimeRow">
-                <div><span id="curTime">0:00</span> <span class="muted">/</span> <span id="durTime">0:00</span></div>
-                <div class="muted hidden sm:block">Space • ←/→ • M • F</div>
-              </div>
-            </div>
-
-            <div class="pBtnRow">
-              <div class="pLeft">
-                <button id="btnPlay" class="pBtnMain" title="Play/Pause">
-                  <i class="ri-play-fill"></i>
-                </button>
-
-                <button id="btnMute" class="pBtn" title="Mute">
-                  <i class="ri-volume-up-line"></i>
-                </button>
-
-                <div class="pVol">
-                  <i class="ri-sound-module-line"></i>
-                  <input id="vol" type="range" min="0" max="1" step="0.01" value="1">
-                </div>
-              </div>
-
-              <div class="pRight">
-                <div class="pSelect">
-                  <i class="ri-hd-line"></i>
-                  <select id="quality">
-                    <option value="1080">1080p</option>
-                    <option value="720" selected>720p</option>
-                    <option value="480">480p</option>
-                  </select>
-                </div>
-
-                <div class="pSelect hidden sm:flex">
-                  <i class="ri-speed-up-line"></i>
-                  <select id="speed">
-                    <option value="0.75">0.75x</option>
-                    <option value="1" selected>1x</option>
-                    <option value="1.25">1.25x</option>
-                    <option value="1.5">1.5x</option>
-                  </select>
-                </div>
-
-                <button id="btnNext" class="pBtnWide" title="Next">
-                  <i class="ri-skip-forward-line"></i> Next
-                </button>
-
-                <button id="btnFS" class="pBtn" title="Fullscreen">
-                  <i class="ri-fullscreen-line"></i>
-                </button>
-              </div>
-            </div>
-          </div>
-
-          <!-- next overlay -->
-          <div id="nextOverlay" class="pNext hidden">
-            <div class="pNextCard">
-              <div class="muted">Up next</div>
-              <div class="pNextTitle">Episode <span id="nextEpNum"></span></div>
-              <div class="pNextRow">
-                <button id="btnPlayNext" class="btnPrimary w-full"><i class="ri-play-fill"></i> Play Next</button>
-                <button id="btnCancelNext" class="btnGhost w-full">Cancel</button>
-              </div>
-              <div class="muted mt-2 text-xs">Auto in <span id="nextCountdown">2</span>s</div>
-            </div>
-          </div>
-        </div>
-
-        <div class="pFooter">
-          <div class="text-sm text-zinc-300">
-            Auto Next:
-            <button id="toggleAutoNext" class="pill ml-2">ON</button>
-          </div>
-          <button id="btnReattach" class="pill"><i class="ri-refresh-line"></i> Re-attach</button>
-        </div>
+      <div class="playerOverlay" id="tapOverlay">
+        <button class="bigPlay" id="bigPlay"><i class="ri-play-fill"></i></button>
       </div>
     </div>
 
-    <!-- SIDE (mobile: under, desktop: right) -->
-    <div class="panel p-5 sm:p-6" data-aos="fade-up" data-aos-delay="180">
-      <h2 class="font-display text-lg tracking-tight">Session</h2>
-      <p class="text-sm text-zinc-400 mt-2">
-        Progress tersimpan otomatis (Continue Watching).
-      </p>
+    <div class="playerControls">
+      <div class="timeRow">
+        <span id="tCur">0:00</span>
+        <input id="seek" type="range" min="0" max="1000" value="0" />
+        <span id="tDur">0:00</span>
+      </div>
 
-      <div class="mt-4 space-y-3">
-        <a class="btnGhost w-full justify-center"
-          href="/watch/<%= code %>/1?lang=<%= lang %>&cover=<%= encodeURIComponent(cover||'') %>&name=<%= encodeURIComponent(tname||'') %>">
-          <i class="ri-restart-line"></i> Restart Series
-        </a>
+      <div class="ctlRow">
+        <button class="ctlBtn" id="btnPlay"><i class="ri-play-fill"></i></button>
+        <button class="ctlBtn" id="btnMute"><i class="ri-volume-up-line"></i></button>
 
-        <div class="hintBox">
-          <div class="font-semibold text-zinc-200 mb-2">Shortcuts</div>
-          <div class="space-y-1">
-            <div><span class="muted">Space</span> play/pause</div>
-            <div><span class="muted">←/→</span> seek 5s</div>
-            <div><span class="muted">M</span> mute</div>
-            <div><span class="muted">F</span> fullscreen</div>
-          </div>
+        <div class="ctlGroup">
+          <i class="ri-sound-module-line"></i>
+          <input id="vol" type="range" min="0" max="1" step="0.01" value="1" />
         </div>
+
+        <div class="ctlGroup">
+          <i class="ri-hd-line"></i>
+          <select id="quality">
+            <option value="720">720p</option>
+            <option value="1080">1080p</option>
+            <option value="480">480p</option>
+          </select>
+        </div>
+
+        <button class="ctlBtn" id="btnFull"><i class="ri-fullscreen-line"></i></button>
+        <button class="ctlBtn" id="btnNext"><i class="ri-skip-forward-mini-fill"></i></button>
+      </div>
+
+      <div class="watchBottomRow">
+        <button class="pill" id="toggleAutoNext"><span class="muted">Auto Next:</span> <b id="autoState">ON</b></button>
+        <button class="pill" id="btnReattach"><i class="ri-refresh-line"></i> Re-attach</button>
       </div>
     </div>
   </div>
-
-  <script>
-    window.__WATCH__ = {
-      code: "<%= code %>",
-      ep: <%= payload?.episode || ep %>,
-      total: <%= payload?.total || 0 %>,
-      title: "<%= (tname || payload?.name || '').replace(/"/g,'&quot;') %>",
-      cover: "<%= (cover || '').replace(/"/g,'&quot;') %>",
-      lang: "<%= lang %>",
-      urls: {
-        v1080: "<%= payload?.video?.video_1080 || '' %>",
-        v720: "<%= payload?.video?.video_720 || '' %>",
-        v480: "<%= payload?.video?.video_480 || '' %>"
-      }
-    };
-  </script>
 </section>
+
+<!-- data for JS -->
+<script>
+  window.__PS__ = {
+    lang: "<%= lang %>",
+    code: "<%= code %>",
+    ep: <%= ep %>,
+    total: <%= Number(p.total || 0) %>,
+    title: "<%- titleSafe %>",
+    cover: "<%- coverSafe %>",
+    src720: "<%= (v.video_720 || '') %>",
+    src1080: "<%= (v.video_1080 || '') %>",
+    src480: "<%= (v.video_480 || '') %>"
+  };
+</script>
