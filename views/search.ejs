@@ -1,44 +1,32 @@
-<section class="mx-auto max-w-7xl px-4 pt-8 pb-14">
+<section class="mx-auto max-w-7xl px-4 pt-5 pb-10">
   <div class="rowHead">
     <div>
-      <h1 class="rowTitle" data-aos="fade-up">Search</h1>
-      <p class="rowSub" data-aos="fade-up" data-aos-delay="80">
-        Keyword: <span class="text-zinc-200 font-semibold"><%= q || "-" %></span>
-      </p>
+      <h1 class="rowTitle">Search</h1>
+      <div class="rowSub">Results for: <span class="text-zinc-200 font-semibold"><%= q || "-" %></span></div>
     </div>
-    <a href="/?lang=<%= lang %>" class="rowLink" data-aos="fade-up" data-aos-delay="120">
-      <i class="ri-home-4-line"></i> Home
-    </a>
   </div>
 
-  <div class="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-4 mt-5">
-    <% (items || []).forEach((x, i) => { %>
-      <a href="/t/<%= x.code %>?lang=<%= lang %>" class="vCard card" data-aos="fade-up" data-aos-delay="<%= 20 + (i%10)*35 %>">
-        <div class="vPoster">
-          <img
-            data-src="<%= x.cover %>"
-            src="data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///ywAAAAAAQABAAACAUwAOw=="
-            data-lazy="true"
-            class="vPosterImg"
-            alt="<%= x.name %>"
-          />
-          <div class="vShade"></div>
-          <div class="vMeta">
-            <div class="vName line-clamp-2"><%= x.name %></div>
-            <div class="vMini">
-              <span><i class="ri-eye-line"></i> <%= x.views %></span>
-              <span><i class="ri-heart-3-line"></i> <%= x.favorites %></span>
+  <% if (!q) { %>
+    <div class="emptyBox mt-5">Ketik kata kunci di search bar.</div>
+  <% } else if (!items.length) { %>
+    <div class="emptyBox mt-5">Tidak ada hasil untuk "<%= q %>".</div>
+  <% } else { %>
+    <div class="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-4 mt-5">
+      <% items.forEach((x,i)=>{ %>
+        <a class="vCard card" href="/t/<%= x.code %>?lang=<%= lang %>" data-aos="fade-up" data-aos-delay="<%= 20 + (i%12)*25 %>">
+          <div class="vPoster">
+            <img data-src="<%= x.cover %>" src="data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///ywAAAAAAQABAAACAUwAOw==" data-lazy="true" class="vPosterImg" alt="<%= x.name %>"/>
+            <div class="vShade"></div>
+            <div class="vMeta">
+              <div class="vName line-clamp-2"><%= x.name %></div>
+              <div class="vMini">
+                <span><i class="ri-film-line"></i> <%= x.episodes ?? "-" %></span>
+                <span><i class="ri-heart-3-line"></i> <%= x.favorites ?? "-" %></span>
+              </div>
             </div>
-            <div class="vTagline line-clamp-2"><%= x.tagline || x.summary %></div>
           </div>
-        </div>
-      </a>
-    <% }) %>
-
-    <% if (!items || items.length === 0) { %>
-      <div class="col-span-full emptyBox" data-aos="fade-up">
-        Tidak ada hasil. Coba keyword lain, misal: <b>love</b>
-      </div>
-    <% } %>
-  </div>
+        </a>
+      <% }) %>
+    </div>
+  <% } %>
 </section>
