@@ -1,0 +1,76 @@
+<section class="mx-auto max-w-7xl px-4 pt-8 pb-14">
+  <div class="grid lg:grid-cols-12 gap-4">
+    <div class="lg:col-span-5 panel" data-aos="fade-up">
+      <div class="posterBig">
+        <% if (title?.cover) { %>
+          <img src="<%= title.cover %>" class="posterBigImg" alt="">
+          <div class="posterBigShade"></div>
+        <% } else { %>
+          <div class="p-10 text-zinc-400">No cover</div>
+        <% } %>
+
+        <div class="posterBigMeta">
+          <div class="miniChips">
+            <span class="chip2"><i class="ri-film-line"></i> <%= title?.episodes ?? '-' %> eps</span>
+            <span class="chip2"><i class="ri-heart-3-line"></i> <%= title?.favorites ?? '-' %></span>
+          </div>
+
+          <h1 class="font-display text-2xl tracking-tight mt-2"><%= title?.name || ("Series " + code) %></h1>
+          <p class="text-zinc-300 mt-2 line-clamp-4"><%= title?.summary || "No summary available." %></p>
+
+          <div class="mt-4 flex gap-2">
+            <a class="btnPrimary"
+               href="/watch/<%= code %>/1?lang=<%= lang %>&cover=<%= encodeURIComponent(title?.cover||'') %>&name=<%= encodeURIComponent(title?.name||'') %>">
+              <i class="ri-play-fill"></i> Play EP 1
+            </a>
+            <a class="btnGhost" href="/?lang=<%= lang %>"><i class="ri-arrow-left-line"></i> Home</a>
+          </div>
+
+          <div class="mt-4 flex flex-wrap gap-2">
+            <% (title?.tags || []).forEach(t => { %>
+              <span class="tagPill"><%= t %></span>
+            <% }) %>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="lg:col-span-7 panel p-5 sm:p-6" data-aos="fade-up" data-aos-delay="120">
+      <div class="rowHead">
+        <div>
+          <h2 class="rowTitle">Episodes</h2>
+          <div class="rowSub">Tap episode untuk streaming (vertical player).</div>
+        </div>
+        <div class="text-xs text-zinc-400">Code: <span class="text-zinc-200 font-semibold"><%= code %></span></div>
+      </div>
+
+      <!-- Resume (client-side) -->
+      <div id="titleContinue" class="hidden resumeBox">
+        <div class="flex items-center justify-between">
+          <div class="text-sm text-zinc-200 font-semibold">Resume</div>
+          <div id="titleContinueMeta" class="text-xs text-zinc-400"></div>
+        </div>
+        <a id="titleContinueBtn" href="#" class="btnPrimary mt-3 inline-flex">
+          <i class="ri-play-fill"></i> Continue
+        </a>
+      </div>
+
+      <div class="grid grid-cols-4 sm:grid-cols-6 gap-2 mt-5">
+        <% (episodes || []).forEach((e, i) => { %>
+          <a
+            href="/watch/<%= code %>/<%= e.episode %>?lang=<%= lang %>&cover=<%= encodeURIComponent(title?.cover||'') %>&name=<%= encodeURIComponent(title?.name||'') %>"
+            class="epBtn"
+            data-aos="zoom-in"
+            data-aos-delay="<%= 20 + (i%18)*25 %>"
+          >
+            <div class="epTop">EP</div>
+            <div class="epNum"><%= e.episode %></div>
+            <div class="epLock <%= e.locked ? 'lock' : 'free' %>">
+              <% if (e.locked) { %><i class="ri-lock-2-line"></i> Locked<% } else { %><i class="ri-unlock-line"></i> Free<% } %>
+            </div>
+          </a>
+        <% }) %>
+      </div>
+    </div>
+  </div>
+</section>
