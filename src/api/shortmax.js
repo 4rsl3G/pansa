@@ -1,46 +1,38 @@
 const axios = require("axios");
 
+const baseURL = process.env.SHORTMAX_API_BASE || "https://sapimu.au/shortmax/api/v1";
+const token = process.env.SHORTMAX_TOKEN;
+
 const api = axios.create({
-  baseURL: process.env.SHORTMAX_API_BASE,
-  timeout: 15000,
+  baseURL,
+  timeout: 12000,
   headers: {
-    Authorization: `Bearer ${process.env.SHORTMAX_TOKEN}`
+    Authorization: `Bearer ${token}`
   }
 });
 
-function normalizeLang(lang) {
-  return (lang || "en").toString().trim();
+async function withRetry(fn, tries = 2) {
+  let lastErr;
+  for (let i = 0; i < tries; i++) {
+    try {
+      return await fn();
+    } catch (e) {
+      lastErr = e;
+      const code = e?.code || "";
+      const status = e?.response?.status || 0;
+      // retry hanya untuk network error / 5xx
+      const retryable = ["ETIMEDOUT", "ECONNRESET", "EAI_AGAIN", "ENOTFOUND"].includes(code) || status >= 500;
+      if (!retryable) break;
+      await new Promise(r => setTimeout(r, 350 * (i + 1)));
+    }
+  }
+  throw lastErr;
 }
 
-module.exports = {
-  async getLanguages() {
-    const { data } = await api.get(`/languages?`);
-    return data;
-  },
+const getLanguages = () => withRetry(() => api.get(`/languages?`)).then(r => r.data);
+const getHome = (lang) => withRetry(() => api.get(`/home?lang=${encodeURIComponent(lang)}`)).then(r => r.data);
+const search = (q, lang) => withRetry(() => api.get(`/search?q=${encodeURIComponent(q)}&lang=${encodeURIComponent(lang)}`)).then(r => r.data);
+const getEpisodes = (code, lang) => withRetry(() => api.get(`/episodes/${encodeURIComponent(code)}?lang=${encodeURIComponent(lang)}`)).then(r => r.data);
+const getPlay = (code, ep, lang) => withRetry(() => api.get(`/play/${encodeURIComponent(code)}?lang=${encodeURIComponent(lang)}&ep=${encodeURIComponent(ep)}`)).then(r => r.data);
 
-  async getHome(lang) {
-    const { data } = await api.get(`/home?lang=${encodeURIComponent(normalizeLang(lang))}`);
-    return data;
-  },
-
-  async search(q, lang) {
-    const { data } = await api.get(
-      `/search?q=${encodeURIComponent(q || "")}&lang=${encodeURIComponent(normalizeLang(lang))}`
-    );
-    return data;
-  },
-
-  async getEpisodes(code, lang) {
-    const { data } = await api.get(
-      `/episodes/${encodeURIComponent(code)}?lang=${encodeURIComponent(normalizeLang(lang))}`
-    );
-    return data;
-  },
-
-  async getPlay(code, ep, lang) {
-    const { data } = await api.get(
-      `/play/${encodeURIComponent(code)}?lang=${encodeURIComponent(normalizeLang(lang))}&ep=${encodeURIComponent(ep)}`
-    );
-    return data;
-  }
-};
+module.exports = { getLanguages, getHome, search, getEpisodes, getPlay };
