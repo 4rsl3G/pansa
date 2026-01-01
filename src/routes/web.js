@@ -125,4 +125,12 @@ router.get("/watch/:code/:ep", async (req, res) => {
   }
 });
 
+router.get("/debug/env", (req, res) => {
+  res.json({
+    baseURL: process.env.SHORTMAX_API_BASE,
+    tokenPresent: Boolean(process.env.SHORTMAX_TOKEN),
+    nodeEnv: process.env.NODE_ENV
+  });
+});
+
 module.exports = router;
