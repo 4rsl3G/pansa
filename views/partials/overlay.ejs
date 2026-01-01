@@ -1,0 +1,25 @@
+<!-- Global page loading overlay -->
+<div id="pageOverlay" aria-hidden="true">
+  <div class="overlayCenter">
+    <div class="overlayCard">
+      <div class="overlayTop">
+        <div class="sk skIcon"></div>
+        <div class="overlayLines">
+          <div class="sk skLine w44"></div>
+          <div class="sk skLine w72"></div>
+        </div>
+      </div>
+
+      <div class="overlayGrid">
+        <% for(let i=0;i<8;i++){ %>
+          <div class="overlayMini">
+            <div class="sk skPoster"></div>
+            <div class="sk skLine w60 mt10"></div>
+          </div>
+        <% } %>
+      </div>
+
+      <div class="overlayHint">Loading PanStream…</div>
+    </div>
+  </div>
+</div>
