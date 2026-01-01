@@ -12,12 +12,12 @@
   "license": "MIT",
   "dependencies": {
     "axios": "^1.6.0",
-    "barba.js": "^2.10.0",
     "dotenv": "^16.3.1",
-    "ejs": "^3.1.9",
     "express": "^4.18.2",
-    "hls.js": "^1.5.0",
+    "ejs": "^3.1.9",
     "jquery": "^3.7.1",
-    "lru-cache": "^10.0.1"
+    "hls.js": "^1.5.0",
+    "lru-cache": "^10.0.1",
+    "@barba/core": "^2.9.7"
   }
 }
