@@ -3,6 +3,7 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover" />
+  <meta name="theme-color" content="#07070b" />
   <title><%= pageTitle %> • PanStream</title>
 
   <!-- Fonts -->
@@ -13,14 +14,13 @@
   <!-- Remix Icon -->
   <link href="https://cdn.jsdelivr.net/npm/remixicon@4.3.0/fonts/remixicon.css" rel="stylesheet">
 
-  <!-- Tailwind CDN (utility untuk layout cepat, tapi CSS utama tetap custom) -->
+  <!-- Tailwind CDN -->
   <script src="https://cdn.tailwindcss.com"></script>
   <script>
     tailwind.config = {
       theme: {
         extend: {
-          fontFamily: { display: ["Unbounded","ui-sans-serif"], body: ["Manrope","ui-sans-serif"] },
-          boxShadow: { glow: "0 0 0 1px rgba(255,255,255,.08), 0 20px 60px rgba(0,0,0,.55)" }
+          fontFamily: { display: ["Unbounded","ui-sans-serif"], body: ["Manrope","ui-sans-serif"] }
         }
       }
     }
@@ -34,15 +34,12 @@
 
 <body class="bg-zinc-950 text-zinc-50 font-body overflow-x-hidden">
 
-  <!-- Ambient background -->
   <div class="bg-ambient"></div>
 
   <%- include("../partials/navbar", { langs, lang, q }) %>
 
-  <main data-barba="wrapper">
-    <div data-barba="container" data-barba-namespace="<%= (pageTitle||'page').toLowerCase().replace(/[^a-z0-9]/g,'') %>">
-      <%- body %>
-    </div>
+  <main class="pageWrap">
+    <%- body %>
   </main>
 
   <%- include("../partials/footer") %>
