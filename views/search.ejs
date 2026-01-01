@@ -1,27 +1,27 @@
-<section class="mx-auto max-w-7xl px-4 pt-5 pb-10">
+<section class="wrap pb-14">
   <div class="rowHead">
     <div>
-      <h1 class="rowTitle">Search</h1>
+      <h2 class="rowTitle">Search</h2>
       <div class="rowSub">Results for: <span class="text-zinc-200 font-semibold"><%= q || "-" %></span></div>
     </div>
   </div>
 
-  <% if (!q) { %>
-    <div class="emptyBox mt-5">Ketik kata kunci di search bar.</div>
-  <% } else if (!items.length) { %>
-    <div class="emptyBox mt-5">Tidak ada hasil untuk "<%= q %>".</div>
+  <% if (!items || !items.length) { %>
+    <div class="emptyBox mt-6">No results. Try different keyword.</div>
   <% } else { %>
-    <div class="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-4 mt-5">
-      <% items.forEach((x,i)=>{ %>
-        <a class="vCard card" href="/t/<%= x.code %>?lang=<%= lang %>" data-aos="fade-up" data-aos-delay="<%= 20 + (i%12)*25 %>">
+    <div class="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-4 mt-6">
+      <% items.forEach((x, i) => { %>
+        <a href="/t/<%= x.code %>?lang=<%= lang %>" class="vCard card" data-aos="fade-up" data-aos-delay="<%= (i%12)*25 %>">
           <div class="vPoster">
-            <img data-src="<%= x.cover %>" src="data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///ywAAAAAAQABAAACAUwAOw==" data-lazy="true" class="vPosterImg" alt="<%= x.name %>"/>
+            <img data-src="<%= x.cover %>"
+                 src="data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///ywAAAAAAQABAAACAUwAOw=="
+                 data-lazy="true" class="vPosterImg" alt="<%= x.name %>">
             <div class="vShade"></div>
             <div class="vMeta">
               <div class="vName line-clamp-2"><%= x.name %></div>
               <div class="vMini">
                 <span><i class="ri-film-line"></i> <%= x.episodes ?? "-" %></span>
-                <span><i class="ri-heart-3-line"></i> <%= x.favorites ?? "-" %></span>
+                <span><i class="ri-eye-line"></i> <%= x.views ?? "-" %></span>
               </div>
             </div>
           </div>
