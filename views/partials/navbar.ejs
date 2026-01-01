@@ -1,49 +1,57 @@
 <header class="nav-blur">
-  <div class="mx-auto max-w-7xl px-4 py-4 flex items-center gap-3">
-    <a href="/?lang=<%= lang %>" class="brand group flex items-center gap-3">
-      <div class="brandMark">
-        <i class="ri-play-circle-line"></i>
-      </div>
-      <div class="leading-tight">
-        <div class="font-display tracking-tight text-lg">PanStream</div>
-        <div class="text-xs text-zinc-400 -mt-1">vertical micro-series</div>
-      </div>
-    </a>
-
-    <form action="/search" method="GET" class="ml-auto flex-1 max-w-xl">
-      <input type="hidden" name="lang" value="<%= lang %>"/>
-      <div class="searchShell">
-        <i class="ri-search-2-line searchIcon"></i>
-        <input
-          name="q"
-          value="<%= q || '' %>"
-          placeholder="Cari judul… (misal: love)"
-          class="searchInput"
-        />
-        <button class="searchBtn">Go</button>
-      </div>
-    </form>
-
-    <div class="flex items-center gap-2">
-      <div class="relative group">
-        <button class="pill">
-          <i class="ri-translate-2"></i>
-          <span class="hidden sm:inline"><%= lang %></span>
-          <i class="ri-arrow-down-s-line"></i>
-        </button>
-        <div class="langMenu">
-          <% (langs || []).forEach(l => { %>
-            <a href="?lang=<%= l.code %>" class="langItem">
-              <div class="text-sm font-semibold"><%= l.localName %></div>
-              <div class="text-xs text-zinc-400"><%= l.name %> • <%= l.code %></div>
-            </a>
-          <% }) %>
+  <div class="navShell mx-auto max-w-7xl px-4">
+    <!-- Row 1: Brand + Actions -->
+    <div class="navRowTop">
+      <a href="/?lang=<%= lang %>" class="brand group flex items-center gap-3">
+        <div class="brandMark">
+          <i class="ri-play-circle-line"></i>
         </div>
-      </div>
+        <div class="leading-tight">
+          <div class="font-display tracking-tight text-base sm:text-lg">PanStream</div>
+          <div class="text-[11px] sm:text-xs text-zinc-400 -mt-1">vertical micro-series</div>
+        </div>
+      </a>
 
-      <button id="btnPulse" class="pill" title="Pulse UI">
-        <i class="ri-sparkling-line"></i>
-      </button>
+      <div class="navActions">
+        <div class="relative group">
+          <button class="pill pillTight" aria-label="Language">
+            <i class="ri-translate-2"></i>
+            <span class="hidden sm:inline font-semibold"><%= lang %></span>
+            <i class="ri-arrow-down-s-line"></i>
+          </button>
+
+          <div class="langMenu">
+            <% (langs || []).forEach(l => { %>
+              <a href="?lang=<%= l.code %>" class="langItem">
+                <div class="text-sm font-semibold"><%= l.localName %></div>
+                <div class="text-xs text-zinc-400"><%= l.name %> • <%= l.code %></div>
+              </a>
+            <% }) %>
+          </div>
+        </div>
+
+        <button id="btnPulse" class="pill pillTight" title="Pulse UI">
+          <i class="ri-sparkling-line"></i>
+        </button>
+      </div>
+    </div>
+
+    <!-- Row 2: Search full width on mobile -->
+    <div class="navRowBottom">
+      <form action="/search" method="GET" class="navSearch">
+        <input type="hidden" name="lang" value="<%= lang %>"/>
+        <div class="searchShell">
+          <i class="ri-search-2-line searchIcon"></i>
+          <input
+            name="q"
+            value="<%= q || '' %>"
+            placeholder="Cari judul… (contoh: love)"
+            class="searchInput"
+            autocomplete="off"
+          />
+          <button class="searchBtn" type="submit">Go</button>
+        </div>
+      </form>
     </div>
   </div>
 </header>
