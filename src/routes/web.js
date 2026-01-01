@@ -125,12 +125,27 @@ router.get("/watch/:code/:ep", async (req, res) => {
   }
 });
 
-router.get("/debug/env", (req, res) => {
-  res.json({
-    baseURL: process.env.SHORTMAX_API_BASE,
-    tokenPresent: Boolean(process.env.SHORTMAX_TOKEN),
-    nodeEnv: process.env.NODE_ENV
-  });
+router.get("/debug/home", async (req, res) => {
+  try {
+    const lang = (req.query.lang || res.locals.lang || "en").toString();
+    const payload = await shortmax.getHome(lang);
+    res.json({
+      ok: true,
+      lang,
+      count: payload?.data?.length ?? 0,
+      cached: payload?.cached,
+      ttl: payload?.ttl
+    });
+  } catch (e) {
+    res.status(500).json({
+      ok: false,
+      lang: (req.query.lang || res.locals.lang || "en").toString(),
+      status: e?.response?.status || null,
+      msg: e?.message || null,
+      data: e?.response?.data || null,
+      code: e?.code || null
+    });
+  }
 });
 
 module.exports = router;
