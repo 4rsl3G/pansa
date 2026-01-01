@@ -1,14 +1,10 @@
 <%
-  // Hardening: pastikan rows selalu array
   const safeRows = Array.isArray(rows) ? rows : [];
   const hero = safeRows.length ? safeRows[0] : null;
-
-  // helper aman
   const enc = (v) => encodeURIComponent((v ?? "").toString());
 %>
 
-<!-- HERO -->
-<section class="mx-auto max-w-7xl px-4 pt-8 pb-6">
+<section class="mx-auto max-w-7xl px-4 pt-6 sm:pt-8 pb-6">
   <div class="heroWrap" data-aos="fade-up">
     <% if (hero) { %>
       <div class="heroBg">
@@ -20,11 +16,7 @@
 
         <h1 class="heroTitle"><%= hero.name %></h1>
 
-        <% if (hero.summary) { %>
-          <p class="heroDesc line-clamp-3"><%= hero.summary %></p>
-        <% } else { %>
-          <p class="heroDesc line-clamp-3">Discover vertical micro-series on PanStream.</p>
-        <% } %>
+        <p class="heroDesc line-clamp-3"><%= hero.summary || "Discover vertical micro-series on PanStream." %></p>
 
         <div class="heroTags">
           <% (hero.tags || []).slice(0,4).forEach(t => { %>
@@ -44,18 +36,9 @@
         </div>
 
         <div class="heroStats">
-          <div class="statBox">
-            <div class="statLabel">Episodes</div>
-            <div class="statVal"><%= hero.episodes ?? "-" %></div>
-          </div>
-          <div class="statBox">
-            <div class="statLabel">Favorites</div>
-            <div class="statVal"><%= hero.favorites ?? "-" %></div>
-          </div>
-          <div class="statBox">
-            <div class="statLabel">Views</div>
-            <div class="statVal"><%= hero.views ?? "-" %></div>
-          </div>
+          <div class="statBox"><div class="statLabel">Episodes</div><div class="statVal"><%= hero.episodes ?? "-" %></div></div>
+          <div class="statBox"><div class="statLabel">Favorites</div><div class="statVal"><%= hero.favorites ?? "-" %></div></div>
+          <div class="statBox"><div class="statLabel">Views</div><div class="statVal"><%= hero.views ?? "-" %></div></div>
         </div>
       </div>
     <% } else { %>
@@ -71,14 +54,12 @@
   </div>
 </section>
 
-<!-- CONTINUE WATCHING (Client-side) -->
-<section class="mx-auto max-w-7xl px-4 pb-4">
-  <div class="rowHead">
+<section class="mx-auto max-w-7xl px-4 pb-6">
+  <div class="rowHead rowHeadTight">
     <h2 class="rowTitle">Continue Watching</h2>
     <button id="btnClearContinue" class="rowLink">Clear <i class="ri-delete-bin-6-line"></i></button>
   </div>
 
-  <!-- skeleton (ditampilkan sampai JS build list) -->
   <div id="continueSkeleton" class="grid grid-cols-2 sm:grid-cols-4 gap-4 mt-4">
     <% for(let i=0;i<4;i++){ %>
       <div class="cwCard">
@@ -94,7 +75,6 @@
   </div>
 </section>
 
-<!-- ROW: PICKS -->
 <section class="mx-auto max-w-7xl px-4 pb-14">
   <div class="rowHead">
     <div>
@@ -107,11 +87,8 @@
   </div>
 
   <div class="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-4 mt-4">
-    <% safeRows.slice(0,15).forEach((x, i) => { %>
-      <a href="/t/<%= x.code %>?lang=<%= lang %>"
-         class="vCard card"
-         data-aos="zoom-in"
-         data-aos-delay="<%= 20 + (i%10)*35 %>">
+    <% safeRows.slice(0, 20).forEach((x, i) => { %>
+      <a href="/t/<%= x.code %>?lang=<%= lang %>" class="vCard card" data-aos="zoom-in" data-aos-delay="<%= 20 + (i%10)*35 %>">
         <div class="vPoster">
           <img
             data-src="<%= x.cover %>"
@@ -129,7 +106,6 @@
               <span><i class="ri-film-line"></i> <%= x.episodes ?? "-" %></span>
               <span><i class="ri-heart-3-line"></i> <%= x.favorites ?? "-" %></span>
             </div>
-
             <% if (x.tagline) { %>
               <div class="vTagline line-clamp-2"><%= x.tagline %></div>
             <% } %>
@@ -143,42 +119,5 @@
         Tidak ada konten untuk ditampilkan.
       </div>
     <% } %>
-  </div>
-</section>
-
-<!-- OPTIONAL: GRID LEBIH PANJANG (kalau mau tampil lebih banyak) -->
-<section class="mx-auto max-w-7xl px-4 pb-14">
-  <div class="rowHead">
-    <div>
-      <h2 class="rowTitle" data-aos="fade-up">More For You</h2>
-      <div class="rowSub" data-aos="fade-up" data-aos-delay="80">Bite-sized • vertical stories</div>
-    </div>
-  </div>
-
-  <div class="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-4 mt-4">
-    <% safeRows.slice(15, 33).forEach((x, i) => { %>
-      <a href="/t/<%= x.code %>?lang=<%= lang %>"
-         class="vCard card"
-         data-aos="fade-up"
-         data-aos-delay="<%= 20 + (i%12)*25 %>">
-        <div class="vPoster">
-          <img
-            data-src="<%= x.cover %>"
-            src="data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///ywAAAAAAQABAAACAUwAOw=="
-            data-lazy="true"
-            class="vPosterImg"
-            alt="<%= x.name %>"
-          />
-          <div class="vShade"></div>
-          <div class="vMeta">
-            <div class="vName line-clamp-2"><%= x.name %></div>
-            <div class="vMini">
-              <span><i class="ri-play-circle-line"></i> <%= x.episodes ?? "-" %></span>
-              <span><i class="ri-eye-line"></i> <%= x.views ?? "-" %></span>
-            </div>
-          </div>
-        </div>
-      </a>
-    <% }) %>
   </div>
 </section>
