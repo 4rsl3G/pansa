@@ -1,26 +1,24 @@
-const store = new Map();
+const { LRUCache } = require("lru-cache");
 
-function now() { return Date.now(); }
+const cache = new LRUCache({
+  max: 500,
+  ttl: 1000 * 60 * 5
+});
 
 function get(key) {
-  const hit = store.get(key);
-  if (!hit) return null;
-  if (hit.expiresAt && hit.expiresAt < now()) {
-    store.delete(key);
-    return null;
-  }
-  return hit.value;
+  return cache.get(key);
 }
 
-function set(key, value, ttlMs = 60_000) {
-  store.set(key, { value, expiresAt: ttlMs ? now() + ttlMs : null });
-  return value;
+function set(key, value, ttlMs) {
+  cache.set(key, value, { ttl: ttlMs });
 }
 
-function wrap(key, ttlMs, fn) {
-  const hit = get(key);
-  if (hit) return Promise.resolve(hit);
-  return Promise.resolve(fn()).then((val) => set(key, val, ttlMs));
+async function wrap(key, ttlMs, fn) {
+  const hit = cache.get(key);
+  if (hit !== undefined) return hit;
+  const val = await fn();
+  cache.set(key, val, { ttl: ttlMs });
+  return val;
 }
 
 module.exports = { get, set, wrap };
