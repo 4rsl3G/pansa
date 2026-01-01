@@ -18,6 +18,6 @@
     "jquery": "^3.7.1",
     "hls.js": "^1.5.0",
     "lru-cache": "^10.0.1",
-    "@barba/core": "^2.9.7"
+    "@barba/core": "^*"
   }
 }
