@@ -8,6 +8,6 @@ module.exports = function langMiddleware(req, res, next) {
   }
 
   res.locals.lang = lang;
-  res.locals.q = req.query.q || "";
+  res.locals.q = (req.query.q || "").toString();
   next();
 };
