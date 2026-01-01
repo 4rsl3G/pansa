@@ -11,10 +11,14 @@
     <div class="watchTitle line-clamp-2"><%= p.name %> <span class="muted">• EP <%= ep %>/<%= p.total || "-" %></span></div>
 
     <div class="watchActions">
-      <button class="pill" id="btnEpisodeSheet"><i class="ri-list-check-2"></i> Episodes</button>
-      <a class="pill" href="/watch/<%= code %>/<%= Math.max(1, ep-1) %>?lang=<%= lang %>&cover=<%= encodeURIComponent(cover||'') %>&name=<%= encodeURIComponent(tname||p.name||'') %>"><i class="ri-skip-back-mini-fill"></i></a>
+      <a class="pill" href="/t/<%= code %>?lang=<%= lang %>"><i class="ri-list-check-2"></i> Episodes</a>
+      <a class="pill" href="/watch/<%= code %>/<%= Math.max(1, ep-1) %>?lang=<%= lang %>&cover=<%= encodeURIComponent(cover||'') %>&name=<%= encodeURIComponent(tname||p.name||'') %>">
+        <i class="ri-skip-back-mini-fill"></i>
+      </a>
       <a class="pill" id="btnNextLink"
-         href="/watch/<%= code %>/<%= Math.min((p.total||ep), ep+1) %>?lang=<%= lang %>&cover=<%= encodeURIComponent(cover||'') %>&name=<%= encodeURIComponent(tname||p.name||'') %>"><i class="ri-skip-forward-mini-fill"></i></a>
+         href="/watch/<%= code %>/<%= Math.min((p.total||ep), ep+1) %>?lang=<%= lang %>&cover=<%= encodeURIComponent(cover||'') %>&name=<%= encodeURIComponent(tname||p.name||'') %>">
+        <i class="ri-skip-forward-mini-fill"></i>
+      </a>
     </div>
   </div>
 
@@ -29,11 +33,17 @@
 
       <div class="playerLoading" id="playerLoading">
         <div class="spin"></div>
-        <div class="loadingTxt">Loading video…</div>
+        <div class="loadingTxt" id="loadingTxt">Loading video…</div>
       </div>
 
       <div class="playerOverlay" id="tapOverlay">
         <button class="bigPlay" id="bigPlay"><i class="ri-play-fill"></i></button>
+      </div>
+
+      <div class="toast" id="playerToast">
+        <div class="toastTitle" id="toastTitle">Stream issue</div>
+        <div class="toastDesc" id="toastDesc">Refreshing link…</div>
+        <button class="toastBtn" id="toastBtn">Retry</button>
       </div>
     </div>
 
@@ -74,7 +84,6 @@
   </div>
 </section>
 
-<!-- data for JS -->
 <script>
   window.__PS__ = {
     lang: "<%= lang %>",
@@ -83,6 +92,8 @@
     total: <%= Number(p.total || 0) %>,
     title: "<%- titleSafe %>",
     cover: "<%- coverSafe %>",
+    refreshUrl: "/api/play/<%= code %>/<%= ep %>?lang=<%= lang %>",
+    nextUrl: "/watch/<%= code %>/<%= Math.min((p.total||ep), ep+1) %>?lang=<%= lang %>&cover=<%= encodeURIComponent(cover||'') %>&name=<%= encodeURIComponent(tname||p.name||'') %>",
     src720: "<%= (v.video_720 || '') %>",
     src1080: "<%= (v.video_1080 || '') %>",
     src480: "<%= (v.video_480 || '') %>"
