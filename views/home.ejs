@@ -4,18 +4,14 @@
   const enc = (v) => encodeURIComponent((v ?? "").toString());
 %>
 
-<section class="mx-auto max-w-7xl px-4 pt-6 sm:pt-8 pb-6">
+<section class="mx-auto max-w-7xl px-4 pt-5 sm:pt-7 pb-6">
   <div class="heroWrap" data-aos="fade-up">
     <% if (hero) { %>
-      <div class="heroBg">
-        <img src="<%= hero.cover %>" alt="" class="heroBgImg">
-      </div>
+      <div class="heroBg"><img src="<%= hero.cover %>" alt="" class="heroBgImg"></div>
 
       <div class="heroContent">
         <div class="chip"><i class="ri-fire-line"></i> Spotlight</div>
-
         <h1 class="heroTitle"><%= hero.name %></h1>
-
         <p class="heroDesc line-clamp-3"><%= hero.summary || "Discover vertical micro-series on PanStream." %></p>
 
         <div class="heroTags">
@@ -25,11 +21,9 @@
         </div>
 
         <div class="heroBtns">
-          <a class="btnPrimary"
-             href="/watch/<%= hero.code %>/1?lang=<%= lang %>&cover=<%= enc(hero.cover) %>&name=<%= enc(hero.name) %>">
+          <a class="btnPrimary" href="/watch/<%= hero.code %>/1?lang=<%= lang %>&cover=<%= enc(hero.cover) %>&name=<%= enc(hero.name) %>">
             <i class="ri-play-fill"></i> Play EP 1
           </a>
-
           <a class="btnGhost" href="/t/<%= hero.code %>?lang=<%= lang %>">
             <i class="ri-information-line"></i> Detail
           </a>
@@ -46,15 +40,12 @@
         <div class="chip"><i class="ri-alert-line"></i> No Data</div>
         <h1 class="heroTitle mt-3">PanStream</h1>
         <p class="heroDesc mt-2">Tidak ada data Home dari API. Coba refresh atau ganti bahasa.</p>
-        <div class="heroBtns mt-4">
-          <a class="btnGhost" href="/?lang=<%= lang %>"><i class="ri-refresh-line"></i> Refresh</a>
-        </div>
       </div>
     <% } %>
   </div>
 </section>
 
-<section class="mx-auto max-w-7xl px-4 pb-6">
+<section class="mx-auto max-w-7xl px-4 pb-5">
   <div class="rowHead rowHeadTight">
     <h2 class="rowTitle">Continue Watching</h2>
     <button id="btnClearContinue" class="rowLink">Clear <i class="ri-delete-bin-6-line"></i></button>
@@ -90,13 +81,7 @@
     <% safeRows.slice(0, 20).forEach((x, i) => { %>
       <a href="/t/<%= x.code %>?lang=<%= lang %>" class="vCard card" data-aos="zoom-in" data-aos-delay="<%= 20 + (i%10)*35 %>">
         <div class="vPoster">
-          <img
-            data-src="<%= x.cover %>"
-            src="data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///ywAAAAAAQABAAACAUwAOw=="
-            data-lazy="true"
-            class="vPosterImg"
-            alt="<%= x.name %>"
-          />
+          <img data-src="<%= x.cover %>" src="data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///ywAAAAAAQABAAACAUwAOw==" data-lazy="true" class="vPosterImg" alt="<%= x.name %>"/>
           <div class="vShade"></div>
           <div class="vBadge"><i class="ri-sparkling-2-line"></i> Pick</div>
 
@@ -113,11 +98,5 @@
         </div>
       </a>
     <% }) %>
-
-    <% if (!safeRows.length) { %>
-      <div class="col-span-full emptyBox" data-aos="fade-up">
-        Tidak ada konten untuk ditampilkan.
-      </div>
-    <% } %>
   </div>
 </section>
