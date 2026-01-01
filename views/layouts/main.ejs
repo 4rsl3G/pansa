@@ -1,0 +1,60 @@
+<!doctype html>
+<html lang="<%= lang %>">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover" />
+  <title><%= pageTitle %> • PanStream</title>
+
+  <!-- Fonts -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Manrope:wght@300;400;600;800&family=Unbounded:wght@400;700&display=swap" rel="stylesheet">
+
+  <!-- Remix Icon -->
+  <link href="https://cdn.jsdelivr.net/npm/remixicon@4.3.0/fonts/remixicon.css" rel="stylesheet">
+
+  <!-- Tailwind CDN (utility untuk layout cepat, tapi CSS utama tetap custom) -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script>
+    tailwind.config = {
+      theme: {
+        extend: {
+          fontFamily: { display: ["Unbounded","ui-sans-serif"], body: ["Manrope","ui-sans-serif"] },
+          boxShadow: { glow: "0 0 0 1px rgba(255,255,255,.08), 0 20px 60px rgba(0,0,0,.55)" }
+        }
+      }
+    }
+  </script>
+
+  <!-- AOS -->
+  <link href="https://unpkg.com/aos@2.3.4/dist/aos.css" rel="stylesheet"/>
+
+  <link rel="stylesheet" href="/public/css/app.css">
+</head>
+
+<body class="bg-zinc-950 text-zinc-50 font-body overflow-x-hidden">
+
+  <!-- Ambient background -->
+  <div class="bg-ambient"></div>
+
+  <%- include("../partials/navbar", { langs, lang, q }) %>
+
+  <main data-barba="wrapper">
+    <div data-barba="container" data-barba-namespace="<%= (pageTitle||'page').toLowerCase().replace(/[^a-z0-9]/g,'') %>">
+      <%- body %>
+    </div>
+  </main>
+
+  <%- include("../partials/footer") %>
+  <%- include("../partials/overlay") %>
+
+  <!-- libs -->
+  <script src="https://code.jquery.com/jquery-3.7.1.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/gsap@3.12.5/dist/gsap.min.js"></script>
+  <script src="https://unpkg.com/@barba/core"></script>
+  <script src="https://unpkg.com/aos@2.3.4/dist/aos.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/hls.js@1.5.15/dist/hls.min.js"></script>
+
+  <script src="/public/js/app.js"></script>
+</body>
+</html>
