@@ -1,238 +1,161 @@
 const express = require("express");
 const router = express.Router();
-
-const langMiddleware = require("../middleware/lang");
 const shortmax = require("../api/shortmax");
 const cache = require("../api/cache");
 
-router.use(langMiddleware);
+// Middleware lang default en
+router.use(require("../middleware/lang"));
 
-const k = (...parts) => parts.map(String).join("|");
+const key = (...p) => p.map(String).join("|");
 
-// -------------------- CACHED FETCHERS --------------------
-
-// Languages: 12 jam
+// Server-side cached fetchers
 const getLangsCached = () =>
-  cache.wrap(k("langs"), 1000 * 60 * 60 * 12, async () => {
-    const payload = await shortmax.getLanguages();
-    return payload.data || [];
+  cache.wrap(key("langs"), 1000 * 60 * 60 * 12, async () => {
+    const r = await shortmax.getLanguages();
+    return r.data || [];
   });
 
-// Home: 2 menit per lang
 const getHomeCached = (lang) =>
-  cache.wrap(k("home", lang), 1000 * 60 * 2, async () => {
-    const payload = await shortmax.getHome(lang);
-    return payload.data || [];
+  cache.wrap(key("home", lang), 1000 * 60 * 2, async () => {
+    const r = await shortmax.getHome(lang);
+    return r.data || [];
   });
 
-// Search: 1 menit per lang+q
 const getSearchCached = (lang, q) =>
-  cache.wrap(k("search", lang, q), 1000 * 60 * 1, async () => {
-    const payload = await shortmax.search(q, lang);
-    return payload.data || [];
+  cache.wrap(key("search", lang, q), 1000 * 60, async () => {
+    const r = await shortmax.search(q, lang);
+    return r.data || [];
   });
 
-// Episodes: 10 menit per lang+code
 const getEpisodesCached = (lang, code) =>
-  cache.wrap(k("eps", lang, code), 1000 * 60 * 10, async () => {
-    const payload = await shortmax.getEpisodes(code, lang);
-    return payload.data || [];
+  cache.wrap(key("eps", lang, code), 1000 * 60 * 10, async () => {
+    const r = await shortmax.getEpisodes(code, lang);
+    return r.data || [];
   });
 
-// Play: TTL ikut payload.ttl / expires_in (clamp 5s..10m)
 async function getPlayCached(lang, code, ep) {
-  const key = k("play", lang, code, ep);
-  const hit = cache.get(key);
+  const k = key("play", lang, code, ep);
+  const hit = cache.get(k);
   if (hit) return hit;
-
-  const payload = await shortmax.getPlay(code, ep, lang);
-  const ttlSeconds = Number(payload.ttl || payload?.data?.expires_in || 30);
-  const ttlMs = Math.max(5000, Math.min(ttlSeconds * 1000, 1000 * 60 * 10));
-
-  cache.set(key, payload.data, ttlMs);
-  return payload.data;
+  const r = await shortmax.getPlay(code, ep, lang);
+  const ttl = Math.max(5000, Math.min((r.ttl || r.data?.expires_in || 30) * 1000, 1000 * 60 * 10));
+  cache.set(k, r.data, ttl);
+  return r.data;
 }
 
-// -------------------- DEBUG (optional) --------------------
-router.get("/debug/env", (req, res) => {
-  res.json({
-    baseURL: process.env.SHORTMAX_API_BASE,
-    tokenPresent: Boolean(process.env.SHORTMAX_TOKEN),
-    nodeEnv: process.env.NODE_ENV
-  });
-});
-
-router.get("/debug/home", async (req, res) => {
-  try {
-    const lang = (req.query.lang || res.locals.lang || "en").toString();
-    const payload = await shortmax.getHome(lang);
-    res.json({
-      ok: true,
-      lang,
-      count: payload?.data?.length ?? 0,
-      cached: payload?.cached,
-      ttl: payload?.ttl
-    });
-  } catch (e) {
-    res.status(500).json({
-      ok: false,
-      status: e?.response?.status || null,
-      msg: e?.message || null,
-      data: e?.response?.data || null,
-      code: e?.code || null
-    });
-  }
-});
-
-router.get("/debug/langs", async (req, res) => {
-  try {
-    const payload = await shortmax.getLanguages();
-    res.json({
-      ok: true,
-      count: payload?.data?.length ?? 0,
-      cached: payload?.cached,
-      ttl: payload?.ttl
-    });
-  } catch (e) {
-    res.status(500).json({
-      ok: false,
-      status: e?.response?.status || null,
-      msg: e?.message || null,
-      data: e?.response?.data || null,
-      code: e?.code || null
-    });
-  }
-});
-
-// -------------------- ROUTES --------------------
-
-// HOME (lang default en via middleware)
+// HOME
 router.get("/", async (req, res) => {
-  const lang = (res.locals.lang || "en").toString();
-
-  let langs = [];
-  let rows = [];
-
-  // Fetch phase
+  const lang = res.locals.lang || "en";
+  let langs, rows;
   try {
     langs = await getLangsCached();
     rows = await getHomeCached(lang);
   } catch (e) {
-    console.error("HOME FETCH ERROR:", {
-      status: e?.response?.status,
-      msg: e?.message,
-      data: e?.response?.data,
-      code: e?.code,
-      lang
-    });
-    return res.status(500).send("API fetch error on home");
+    console.error("Home fetch error:", e.message);
+    return res.status(500).send("API error on home fetch");
   }
 
-  // Render phase (biar error EJS kebaca)
   try {
-    return res.render("home", { pageTitle: "Home", langs, rows });
+    return res.render("home", {
+      layout: "layouts/main",
+      pageTitle: "Home",
+      lang,
+      langs,
+      rows
+    });
   } catch (e) {
-    console.error("EJS RENDER ERROR (home):", e?.stack || e);
-    return res.status(500).send(`
-      <h1>EJS Render Error (home.ejs)</h1>
-      <pre>${(e && (e.stack || e.message)) || "unknown error"}</pre>
-    `);
+    console.error("EJS render error (home):", e.stack || e);
+    return res.status(500).send("Home render error");
   }
 });
 
 // SEARCH
 router.get("/search", async (req, res) => {
-  const lang = (res.locals.lang || "en").toString();
+  const lang = res.locals.lang || "en";
+  const q = (req.query.q || "").toString().trim();
+  let langs, items;
+  try {
+    langs = await getLangsCached();
+    items = q ? await getSearchCached(lang, q) : [];
+  } catch (e) {
+    console.error("Search fetch error:", e.message);
+    return res.status(500).send("API error on search fetch");
+  }
 
   try {
-    const langs = await getLangsCached();
-    const q = (req.query.q || "").toString().trim();
-    const items = q ? await getSearchCached(lang, q) : [];
-
-    res.render("search", {
+    return res.render("search", {
+      layout: "layouts/main",
       pageTitle: "Search",
+      lang,
       langs,
       q,
       items
     });
   } catch (e) {
-    console.error("SEARCH ERROR:", {
-      status: e?.response?.status,
-      msg: e?.message,
-      data: e?.response?.data,
-      code: e?.code,
-      lang
-    });
-    res.status(500).send("API error on search");
+    console.error("EJS render error (search):", e.stack || e);
+    return res.status(500).send("Search render error");
   }
 });
 
-// TITLE DETAIL
+// TITLE
 router.get("/t/:code", async (req, res) => {
-  const lang = (res.locals.lang || "en").toString();
+  const lang = res.locals.lang || "en";
+  const code = req.params.code;
+  let langs, home, title, episodes;
+  try {
+    langs = await getLangsCached();
+    home = await getHomeCached(lang);
+    title = (home || []).find(x => String(x.code) === String(code)) || null;
+    episodes = await getEpisodesCached(lang, code);
+  } catch (e) {
+    console.error("Title fetch error:", e.message);
+    return res.status(500).send("API error on title fetch");
+  }
 
   try {
-    const langs = await getLangsCached();
-    const code = req.params.code;
-
-    // best-effort detail dari home cache
-    const home = await getHomeCached(lang);
-    const title = (home || []).find((x) => String(x.code) === String(code)) || null;
-
-    const episodes = await getEpisodesCached(lang, code);
-
-    res.render("title", {
+    return res.render("title", {
+      layout: "layouts/main",
       pageTitle: title?.name || "Title",
+      lang,
       langs,
       title,
       code,
       episodes
     });
   } catch (e) {
-    console.error("TITLE ERROR:", {
-      status: e?.response?.status,
-      msg: e?.message,
-      data: e?.response?.data,
-      code: e?.code,
-      lang
-    });
-    res.status(500).send("API error on title");
+    console.error("EJS render error (title):", e.stack || e);
+    return res.status(500).send("Title render error");
   }
 });
 
 // WATCH
 router.get("/watch/:code/:ep", async (req, res) => {
-  const lang = (res.locals.lang || "en").toString();
+  const lang = res.locals.lang || "en";
+  const { code, ep } = req.params;
+  let langs, payload;
+  try {
+    langs = await getLangsCached();
+    payload = await getPlayCached(lang, code, ep);
+  } catch (e) {
+    console.error("Watch fetch error:", e.message);
+    return res.status(500).send("API error on watch fetch");
+  }
 
   try {
-    const langs = await getLangsCached();
-
-    const { code, ep } = req.params;
-
-    const payload = await getPlayCached(lang, code, ep);
-
-    // cover + name dari query buat Continue Watching
-    const cover = (req.query.cover || "").toString();
-    const tname = (req.query.name || "").toString();
-
-    res.render("watch", {
+    return res.render("watch", {
+      layout: "layouts/main",
       pageTitle: `${payload?.name || "Watch"} • EP ${ep}`,
+      lang,
       langs,
       code,
       ep: Number(ep),
       payload,
-      cover,
-      tname
+      cover: (req.query.cover || "").toString(),
+      tname: (req.query.name || "").toString()
     });
   } catch (e) {
-    console.error("WATCH ERROR:", {
-      status: e?.response?.status,
-      msg: e?.message,
-      data: e?.response?.data,
-      code: e?.code,
-      lang
-    });
-    res.status(500).send("API error on play");
+    console.error("EJS render error (watch):", e.stack || e);
+    return res.status(500).send("Watch render error");
   }
 });
 
