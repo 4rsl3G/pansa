@@ -9,39 +9,43 @@ router.use(langMiddleware);
 
 const k = (...p) => p.map(String).join("|");
 
+// langs cached 12h
 const getLangsCached = () =>
   cache.wrap(k("langs"), 1000 * 60 * 60 * 12, async () => {
     const r = await shortmax.getLanguages();
     return r?.data || [];
   });
 
+// home cached 2m
 const getHomeCached = (lang) =>
   cache.wrap(k("home", lang), 1000 * 60 * 2, async () => {
     const r = await shortmax.getHome(lang);
     return r?.data || [];
   });
 
+// search cached 60s
 const getSearchCached = (lang, q) =>
   cache.wrap(k("search", lang, q), 1000 * 60, async () => {
     const r = await shortmax.search(q, lang);
     return r?.data || [];
   });
 
+// episodes cached 10m
 const getEpisodesCached = (lang, code) =>
   cache.wrap(k("eps", lang, code), 1000 * 60 * 10, async () => {
     const r = await shortmax.getEpisodes(code, lang);
     return r?.data || [];
   });
 
-async function getPlayCached(lang, code, ep) {
+// ⚠️ play cache dibuat SANGAT pendek (hindari auth_key expired)
+async function getPlayShortCached(lang, code, ep) {
   const key = k("play", lang, code, ep);
   const hit = cache.get(key);
   if (hit) return hit;
 
   const payload = await shortmax.getPlay(code, ep, lang);
-  const ttlSeconds = Number(payload?.ttl || payload?.data?.expires_in || 30);
-  const ttlMs = Math.max(5000, Math.min(ttlSeconds * 1000, 1000 * 60 * 10));
-  cache.set(key, payload.data, ttlMs);
+  // cache 20 detik aja supaya aman
+  cache.set(key, payload.data, 1000 * 20);
   return payload.data;
 }
 
@@ -57,29 +61,19 @@ function logApi(scope, e, extra = {}) {
 
 router.get("/", async (req, res) => {
   const lang = res.locals.lang || "en";
-  let langs = [];
-  let rows = [];
-
   try {
-    langs = await getLangsCached();
-    rows = await getHomeCached(lang);
-  } catch (e) {
-    logApi("HOME_FETCH", e, { lang });
-    return res.status(500).send("API error on home");
-  }
-
-  try {
+    const langs = await getLangsCached();
+    const rows = await getHomeCached(lang);
     return res.render("home", { pageTitle: "Home", langs, rows });
   } catch (e) {
-    console.error("EJS_HOME:", e?.stack || e);
-    return res.status(500).send("Home render error");
+    logApi("HOME", e, { lang });
+    return res.status(500).send("API error on home");
   }
 });
 
 router.get("/search", async (req, res) => {
   const lang = res.locals.lang || "en";
   const q = (req.query.q || "").toString().trim();
-
   try {
     const langs = await getLangsCached();
     const items = q ? await getSearchCached(lang, q) : [];
@@ -93,7 +87,6 @@ router.get("/search", async (req, res) => {
 router.get("/t/:code", async (req, res) => {
   const lang = res.locals.lang || "en";
   const code = req.params.code;
-
   try {
     const langs = await getLangsCached();
     const home = await getHomeCached(lang);
@@ -106,13 +99,14 @@ router.get("/t/:code", async (req, res) => {
   }
 });
 
+// Watch page (SSR)
 router.get("/watch/:code/:ep", async (req, res) => {
   const lang = res.locals.lang || "en";
   const { code, ep } = req.params;
 
   try {
     const langs = await getLangsCached();
-    const payload = await getPlayCached(lang, code, ep);
+    const payload = await getPlayShortCached(lang, code, ep);
 
     return res.render("watch", {
       pageTitle: `${payload?.name || "Watch"} • EP ${ep}`,
@@ -126,6 +120,24 @@ router.get("/watch/:code/:ep", async (req, res) => {
   } catch (e) {
     logApi("WATCH", e, { lang, code, ep });
     return res.status(500).send("API error on play");
+  }
+});
+
+/**
+ * ✅ API endpoint untuk refresh play URL (dipanggil dari client saat expired/403/buffering)
+ * GET /api/play/:code/:ep?lang=en
+ */
+router.get("/api/play/:code/:ep", async (req, res) => {
+  const lang = (req.query.lang || res.locals.lang || "en").toString();
+  const { code, ep } = req.params;
+
+  try {
+    // selalu fetch fresh (tanpa cache) untuk auth_key baru
+    const payload = await shortmax.getPlay(code, ep, lang);
+    return res.json({ ok: true, data: payload.data, cached: payload.cached ?? false, ttl: payload.ttl ?? null });
+  } catch (e) {
+    logApi("API_PLAY_REFRESH", e, { lang, code, ep });
+    return res.status(500).json({ ok: false, error: "Failed to refresh play URL" });
   }
 });
 
