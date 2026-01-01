@@ -73,7 +73,7 @@ function saveContinue(list) {
 }
 function upsertContinue(entry) {
   const list = loadContinue();
-  const idx = list.findIndex(x => String(x.code) === String(entry.code));
+  const idx = list.findIndex(x => String(x.code) === String(entry.code) && Number(x.ep) === Number(entry.ep));
   const next = { ...entry, updatedAt: Date.now() };
   if (idx >= 0) list[idx] = { ...list[idx], ...next };
   else list.unshift(next);
@@ -131,15 +131,21 @@ function initContinueHome() {
   });
 }
 
-/* PLAYER (watch page) */
+/* WATCH PLAYER - auto retry + refresh play URL */
 function initWatchPlayer() {
   const data = window.__PS__;
   if (!data) return;
 
   const v = document.getElementById("psVideo");
   const loading = document.getElementById("playerLoading");
+  const loadingTxt = document.getElementById("loadingTxt");
   const tapOverlay = document.getElementById("tapOverlay");
   const bigPlay = document.getElementById("bigPlay");
+
+  const toast = document.getElementById("playerToast");
+  const toastTitle = document.getElementById("toastTitle");
+  const toastDesc = document.getElementById("toastDesc");
+  const toastBtn = document.getElementById("toastBtn");
 
   const tCur = document.getElementById("tCur");
   const tDur = document.getElementById("tDur");
@@ -159,13 +165,39 @@ function initWatchPlayer() {
   let duration = 0;
   let isSeeking = false;
 
+  let retryCount = 0;
+  let lastAttachAt = 0;
+
   const initialAuto = (localStorage.getItem(LS_AUTONEXT) ?? "on") === "on";
   let autoNext = initialAuto;
-  autoState.textContent = autoNext ? "ON" : "OFF";
+  if (autoState) autoState.textContent = autoNext ? "ON" : "OFF";
 
-  function setLoading(on) {
+  const saveProgressThrottled = (() => {
+    let last = 0;
+    return () => {
+      const now = Date.now();
+      if (now - last < 1800) return;
+      last = now;
+      saveProgress();
+    };
+  })();
+
+  function showToast(title, desc, showBtn = true) {
+    if (!toast) return;
+    toast.style.display = "block";
+    toastTitle.textContent = title || "Stream issue";
+    toastDesc.textContent = desc || "";
+    toastBtn.style.display = showBtn ? "block" : "none";
+  }
+  function hideToast() {
+    if (!toast) return;
+    toast.style.display = "none";
+  }
+
+  function setLoading(on, text = "Loading video…") {
     if (!loading) return;
     loading.style.display = on ? "grid" : "none";
+    if (loadingTxt) loadingTxt.textContent = text;
   }
 
   function pickSrc(q) {
@@ -181,40 +213,111 @@ function initWatchPlayer() {
     }
   }
 
-  function attach(q = "720") {
-    destroyHls();
-    setLoading(true);
+  async function refreshPlayUrl() {
+    // hit server endpoint untuk dapat auth_key baru
+    const res = await fetch(data.refreshUrl, { cache: "no-store" });
+    const j = await res.json();
+    if (!j.ok) throw new Error("refresh_failed");
+    const vv = j.data?.video || {};
+    data.src720 = vv.video_720 || data.src720;
+    data.src1080 = vv.video_1080 || data.src1080;
+    data.src480 = vv.video_480 || data.src480;
+    return true;
+  }
 
-    const src = pickSrc(q);
-    if (!src) {
+  async function smartRetry(reason) {
+    // jangan retry terlalu sering
+    const now = Date.now();
+    if (now - lastAttachAt < 1200) return;
+
+    if (retryCount >= 3) {
+      showToast("Can’t load stream", "Try Re-attach or change quality.", true);
       setLoading(false);
       return;
     }
 
-    // Safari iOS can play native HLS
+    retryCount += 1;
+    showToast("Stream issue", `Refreshing link… (${retryCount}/3)`, false);
+    setLoading(true, "Refreshing stream…");
+
+    try {
+      await refreshPlayUrl();
+      const q = quality?.value || "720";
+      await attach(q, true);
+      hideToast();
+    } catch (e) {
+      showToast("Stream issue", "Refresh failed. Tap Retry.", true);
+      setLoading(false);
+    }
+  }
+
+  async function attach(q = "720", keepTime = false) {
+    destroyHls();
+    setLoading(true, "Attaching stream…");
+    lastAttachAt = Date.now();
+
+    const src = pickSrc(q);
+    if (!src) {
+      setLoading(false);
+      showToast("No source", "Video source not available.", true);
+      return;
+    }
+
+    const keep = keepTime ? (v.currentTime || 0) : 0;
+    const wasPlaying = keepTime ? !v.paused : false;
+
+    // iOS Safari native HLS
     if (v.canPlayType("application/vnd.apple.mpegurl")) {
       v.src = src;
       v.load();
-      setTimeout(() => setLoading(false), 450);
+
+      // restore time after metadata
+      v.onloadedmetadata = () => {
+        duration = v.duration || 0;
+        if (keepTime && keep > 0 && duration > 0) v.currentTime = Math.min(keep, duration - 0.7);
+        setLoading(false);
+        if (wasPlaying) v.play().catch(() => {});
+      };
+
       return;
     }
 
     if (window.Hls && Hls.isSupported()) {
-      hls = new Hls({ enableWorker: true });
+      hls = new Hls({
+        enableWorker: true,
+        lowLatencyMode: true,
+        backBufferLength: 30,
+        maxBufferLength: 30,
+        maxMaxBufferLength: 60
+      });
+
       hls.loadSource(src);
       hls.attachMedia(v);
 
       hls.on(Hls.Events.MANIFEST_PARSED, () => {
         setLoading(false);
+        if (keepTime && keep > 0 && duration > 0) v.currentTime = Math.min(keep, duration - 0.7);
+        if (wasPlaying) v.play().catch(() => {});
       });
-      hls.on(Hls.Events.ERROR, () => {
-        setLoading(false);
+
+      hls.on(Hls.Events.ERROR, (evt, err) => {
+        // kalau fatal → retry
+        const status = err?.response?.code || err?.response?.status || err?.response?.data || null;
+        const is403 = err?.response?.code === 403 || err?.response?.status === 403;
+
+        if (err?.fatal) {
+          // indikasi auth_key expired biasanya 403 / manifestLoadError / fragLoadError
+          smartRetry(is403 ? "403" : (err?.details || "fatal"));
+        }
       });
-    } else {
-      v.src = src;
-      v.load();
-      setTimeout(() => setLoading(false), 450);
+
+      return;
     }
+
+    // fallback
+    v.src = src;
+    v.load();
+    setTimeout(() => setLoading(false), 450);
   }
 
   function setPlayIcon() {
@@ -226,7 +329,6 @@ function initWatchPlayer() {
   function saveProgress() {
     const t = v.currentTime || 0;
     const d = duration || v.duration || 0;
-
     upsertContinue({
       lang: data.lang,
       code: data.code,
@@ -240,14 +342,15 @@ function initWatchPlayer() {
 
   // controls
   btnPlay?.addEventListener("click", async () => {
-    if (v.paused) { await v.play().catch(()=>{}); }
+    if (v.paused) await v.play().catch(() => {});
     else v.pause();
     setPlayIcon();
   });
 
   bigPlay?.addEventListener("click", async () => {
+    hideToast();
     setLoading(false);
-    await v.play().catch(()=>{});
+    await v.play().catch(() => {});
     setPlayIcon();
   });
 
@@ -262,13 +365,13 @@ function initWatchPlayer() {
     btnMute.innerHTML = '<i class="ri-volume-up-line"></i>';
   });
 
-  quality?.addEventListener("change", () => {
+  quality?.addEventListener("change", async () => {
     const q = quality.value;
     const keep = v.currentTime || 0;
     const wasPlaying = !v.paused;
-    attach(q);
-    v.currentTime = keep;
-    if (wasPlaying) v.play().catch(()=>{});
+    await attach(q, true);
+    try { v.currentTime = keep; } catch {}
+    if (wasPlaying) v.play().catch(() => {});
   });
 
   btnFull?.addEventListener("click", async () => {
@@ -282,69 +385,82 @@ function initWatchPlayer() {
     if (btnNextLink?.href) location.href = btnNextLink.href;
   });
 
-  btnReattach?.addEventListener("click", () => {
-    attach(quality?.value || "720");
+  btnReattach?.addEventListener("click", async () => {
+    retryCount = 0;
+    hideToast();
+    await smartRetry("manual");
   });
 
   toggleAutoNext?.addEventListener("click", () => {
     autoNext = !autoNext;
-    autoState.textContent = autoNext ? "ON" : "OFF";
+    if (autoState) autoState.textContent = autoNext ? "ON" : "OFF";
     localStorage.setItem(LS_AUTONEXT, autoNext ? "on" : "off");
   });
 
-  // seek
-  seek?.addEventListener("input", () => {
-    isSeeking = true;
+  toastBtn?.addEventListener("click", async () => {
+    retryCount = 0;
+    hideToast();
+    await smartRetry("toast_retry");
   });
+
+  // seek
+  seek?.addEventListener("input", () => { isSeeking = true; });
   seek?.addEventListener("change", () => {
     const val = Number(seek.value || 0) / 1000;
     if (duration > 0) v.currentTime = val * duration;
     isSeeking = false;
   });
 
-  // video events
-  v.addEventListener("loadstart", () => setLoading(true));
-  v.addEventListener("waiting", () => setLoading(true));
+  // buffering events
+  v.addEventListener("loadstart", () => setLoading(true, "Loading…"));
+  v.addEventListener("waiting", () => setLoading(true, "Buffering…"));
   v.addEventListener("playing", () => setLoading(false));
   v.addEventListener("canplay", () => setLoading(false));
 
   v.addEventListener("loadedmetadata", () => {
     duration = v.duration || 0;
-    tDur.textContent = formatTime(duration);
+    if (tDur) tDur.textContent = formatTime(duration);
   });
 
   v.addEventListener("timeupdate", () => {
     const cur = v.currentTime || 0;
-    if (!isSeeking && duration > 0) seek.value = String(Math.floor((cur / duration) * 1000));
-    tCur.textContent = formatTime(cur);
+    if (!isSeeking && duration > 0 && seek) seek.value = String(Math.floor((cur / duration) * 1000));
+    if (tCur) tCur.textContent = formatTime(cur);
 
-    // save progress throttled
-    if ((Math.floor(cur) % 3) === 0) saveProgress();
+    // save throttled
+    saveProgressThrottled();
   });
 
   v.addEventListener("pause", () => { setPlayIcon(); saveProgress(); });
   v.addEventListener("play", () => setPlayIcon());
+  v.addEventListener("error", () => smartRetry("video_error"));
 
   v.addEventListener("ended", () => {
     saveProgress();
     if (!autoNext) return;
-    // auto next episode
-    if (data.total && data.ep < data.total && btnNextLink?.href) {
-      location.href = btnNextLink.href;
+    if (data.total && data.ep < data.total && data.nextUrl) {
+      location.href = data.nextUrl;
     }
   });
-
-  // attach start
-  attach("720");
-  setPlayIcon();
 
   // restore progress if exists
   const list = loadContinue();
   const found = list.find(x => String(x.code) === String(data.code) && Number(x.ep) === Number(data.ep));
-  if (found && found.time && found.time > 5) {
-    // wait a bit
-    setTimeout(() => { try { v.currentTime = Math.min(found.time, (found.duration||999999)-1); } catch {} }, 900);
-  }
+  const restoreTime = found?.time || 0;
+
+  // start attach
+  attach("720", false).then(() => {
+    setPlayIcon();
+    // restore after attach
+    if (restoreTime > 5) {
+      setTimeout(() => {
+        try {
+          const d = duration || v.duration || 0;
+          if (d > 0) v.currentTime = Math.min(restoreTime, d - 0.7);
+        } catch {}
+      }, 900);
+    }
+  });
 }
 
 /* Barba transitions + overlay */
