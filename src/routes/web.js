@@ -125,13 +125,11 @@ router.get("/watch/:code/:ep", async (req, res) => {
   }
 });
 
-router.get("/debug/home", async (req, res) => {
+router.get("/debug/langs", async (req, res) => {
   try {
-    const lang = (req.query.lang || res.locals.lang || "en").toString();
-    const payload = await shortmax.getHome(lang);
+    const payload = await shortmax.getLanguages();
     res.json({
       ok: true,
-      lang,
       count: payload?.data?.length ?? 0,
       cached: payload?.cached,
       ttl: payload?.ttl
@@ -139,7 +137,6 @@ router.get("/debug/home", async (req, res) => {
   } catch (e) {
     res.status(500).json({
       ok: false,
-      lang: (req.query.lang || res.locals.lang || "en").toString(),
       status: e?.response?.status || null,
       msg: e?.message || null,
       data: e?.response?.data || null,
