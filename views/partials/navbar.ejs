@@ -1,11 +1,8 @@
 <header class="nav-blur">
   <div class="navShell mx-auto max-w-7xl px-4">
-    <!-- Row 1: Brand + Actions -->
     <div class="navRowTop">
-      <a href="/?lang=<%= lang %>" class="brand group flex items-center gap-3">
-        <div class="brandMark">
-          <i class="ri-play-circle-line"></i>
-        </div>
+      <a href="/?lang=<%= lang %>" class="brand flex items-center gap-3">
+        <div class="brandMark"><i class="ri-play-circle-line"></i></div>
         <div class="leading-tight">
           <div class="font-display tracking-tight text-base sm:text-lg">PanStream</div>
           <div class="text-[11px] sm:text-xs text-zinc-400 -mt-1">vertical micro-series</div>
@@ -36,19 +33,12 @@
       </div>
     </div>
 
-    <!-- Row 2: Search full width on mobile -->
     <div class="navRowBottom">
       <form action="/search" method="GET" class="navSearch">
         <input type="hidden" name="lang" value="<%= lang %>"/>
         <div class="searchShell">
           <i class="ri-search-2-line searchIcon"></i>
-          <input
-            name="q"
-            value="<%= q || '' %>"
-            placeholder="Cari judul… (contoh: love)"
-            class="searchInput"
-            autocomplete="off"
-          />
+          <input name="q" value="<%= q || '' %>" placeholder="Cari judul… (contoh: love)" class="searchInput" autocomplete="off"/>
           <button class="searchBtn" type="submit">Go</button>
         </div>
       </form>
