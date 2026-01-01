@@ -1,17 +1,23 @@
 {
-  "name": "panstream",
+  "name": "PanStream",
   "version": "1.0.0",
-  "type": "commonjs",
+  "description": "Mobile-first vertical micro-series streaming platform • PanStream",
   "main": "server.js",
+  "type": "commonjs",
   "scripts": {
-    "dev": "node --watch server.js",
+    "dev": "node server.js",
     "start": "node server.js"
   },
+  "author": "PanStream",
+  "license": "MIT",
   "dependencies": {
-    "axios": "^1.7.7",
-    "cookie-parser": "^1.4.6",
-    "dotenv": "^16.4.5",
-    "express": "^4.19.2",
-    "morgan": "^1.10.0"
+    "axios": "^1.6.0",
+    "barba.js": "^2.10.0",
+    "dotenv": "^16.3.1",
+    "ejs": "^3.1.9",
+    "express": "^4.18.2",
+    "hls.js": "^1.5.0",
+    "jquery": "^3.7.1",
+    "lru-cache": "^10.0.1"
   }
 }
