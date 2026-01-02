@@ -1,14 +1,12 @@
 /**
  * shortmax.js
- * Full updated client:
- * - Supports API v1 endpoints: /api/v1/...
- * - Adds proxy play endpoint: /proxy/play/:code (sesuai contoh curl)
- * - Keeps retry logic
+ * - API v1: /api/v1/...
+ * - Proxy: /proxy/play/:code
+ * - Retry logic improved (includes 429)
  */
 
 const axios = require("axios");
 
-// Base root: https://sapimu.au/shortmax
 const baseRoot = process.env.SHORTMAX_API_BASE || "https://sapimu.au/shortmax";
 const token = process.env.SHORTMAX_TOKEN;
 
@@ -20,10 +18,7 @@ function createClient(baseURL) {
   });
 }
 
-// API v1 client: https://sapimu.au/shortmax/api/v1
 const apiV1 = createClient(`${baseRoot}/api/v1`);
-
-// Proxy client: https://sapimu.au/shortmax/proxy
 const proxyApi = createClient(`${baseRoot}/proxy`);
 
 async function withRetry(fn, tries = 2) {
@@ -40,11 +35,10 @@ async function withRetry(fn, tries = 2) {
 
       const retryable =
         ["ETIMEDOUT", "ECONNRESET", "EAI_AGAIN", "ENOTFOUND"].includes(code) ||
+        status === 429 ||
         status >= 500;
 
       if (!retryable) break;
-
-      // simple linear backoff
       await new Promise((r) => setTimeout(r, 350 * (i + 1)));
     }
   }
@@ -52,37 +46,58 @@ async function withRetry(fn, tries = 2) {
   throw lastErr;
 }
 
-/**
- * API v1 endpoints
- */
-const getLanguages = () =>
-  withRetry(() => apiV1.get("/languages")).then((r) => r.data);
+function assertToken() {
+  // Optional: kalau kamu pengen strict, uncomment ini:
+  // if (!token) throw new Error("SHORTMAX_TOKEN is missing");
+}
 
-const getHome = (lang) =>
-  withRetry(() => apiV1.get("/home", { params: { lang } })).then((r) => r.data);
+/** API v1 endpoints */
+const getLanguages = () => {
+  assertToken();
+  return withRetry(() => apiV1.get("/languages")).then((r) => r.data);
+};
 
-const search = (q, lang) =>
-  withRetry(() => apiV1.get("/search", { params: { q, lang } })).then((r) => r.data);
+const getHome = (lang) => {
+  assertToken();
+  return withRetry(() => apiV1.get("/home", { params: { lang } })).then((r) => r.data);
+};
 
-const getEpisodes = (code, lang) =>
-  withRetry(() =>
+const search = (q, lang) => {
+  assertToken();
+  return withRetry(() => apiV1.get("/search", { params: { q, lang } })).then((r) => r.data);
+};
+
+const getEpisodes = (code, lang) => {
+  assertToken();
+  return withRetry(() =>
     apiV1.get(`/episodes/${encodeURIComponent(code)}`, { params: { lang } })
   ).then((r) => r.data);
+};
 
-// ✅ play selalu fresh di server routes /api/play refresh
-const getPlay = (code, ep, lang) =>
-  withRetry(() =>
+const getPlay = (code, ep, lang) => {
+  assertToken();
+  return withRetry(() =>
     apiV1.get(`/play/${encodeURIComponent(code)}`, { params: { lang, ep } })
   ).then((r) => r.data);
+};
 
-/**
- * NEW: Proxy endpoint (sesuai curl)
- * GET https://sapimu.au/shortmax/proxy/play/:code?lang=en&ep=1
- */
-const getProxyPlay = (code, ep, lang) =>
-  withRetry(() =>
+const getProxyPlay = (code, ep, lang) => {
+  assertToken();
+  return withRetry(() =>
     proxyApi.get(`/play/${encodeURIComponent(code)}`, { params: { lang, ep } })
   ).then((r) => r.data);
+};
+
+/**
+ * Helper: prefer proxy, fallback to v1
+ */
+const getBestPlay = async (code, ep, lang) => {
+  try {
+    return await getProxyPlay(code, ep, lang);
+  } catch (_) {
+    return await getPlay(code, ep, lang);
+  }
+};
 
 module.exports = {
   getLanguages,
@@ -90,5 +105,6 @@ module.exports = {
   search,
   getEpisodes,
   getPlay,
-  getProxyPlay
+  getProxyPlay,
+  getBestPlay
 };
