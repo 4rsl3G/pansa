@@ -7,6 +7,12 @@ const cache = require("../api/cache");
 
 router.use(langMiddleware);
 
+// ✅ penting: agar semua link bisa otomatis pakai prefix mount path
+router.use((req, res, next) => {
+  res.locals.basePath = req.baseUrl || ""; // "" atau "/shortmax"
+  next();
+});
+
 const k = (...p) => p.map(String).join("|");
 
 // Default prefer proxy play (bisa di override via env)
@@ -22,7 +28,6 @@ function safeDecode(s) {
 
 /**
  * Helper: ambil play dari proxy (sesuai curl), fallback ke v1 kalau gagal.
- * Output: payload object (yang punya .data, .cached, .ttl, dst)
  */
 async function fetchPlayPreferProxy(code, ep, lang) {
   if (PREFER_PROXY_PLAY && typeof shortmax.getProxyPlay === "function") {
@@ -67,15 +72,13 @@ const getEpisodesCached = (lang, code) =>
     return r?.data || [];
   });
 
-// ⚠️ play cache dibuat SANGAT pendek (hindari auth_key expired)
+// ⚠️ play cache sangat pendek
 async function getPlayShortCached(lang, code, ep) {
   const key = k("play", lang, code, ep);
   const hit = cache.get(key);
   if (hit) return hit;
 
   const payload = await fetchPlayPreferProxy(code, ep, lang);
-
-  // cache 20 detik aja supaya aman (simpan .data)
   cache.set(key, payload?.data, 1000 * 20);
   return payload?.data;
 }
@@ -95,7 +98,7 @@ router.get("/", async (req, res) => {
   try {
     const langs = await getLangsCached();
     const rows = await getHomeCached(lang);
-    return res.render("home", { pageTitle: "Home", langs, rows });
+    return res.render("home", { pageTitle: "Home", langs, rows, lang });
   } catch (e) {
     logApi("HOME", e, { lang });
     return res.status(500).send("API error on home");
@@ -108,7 +111,7 @@ router.get("/search", async (req, res) => {
   try {
     const langs = await getLangsCached();
     const items = q ? await getSearchCached(lang, q) : [];
-    return res.render("search", { pageTitle: "Search", langs, q, items });
+    return res.render("search", { pageTitle: "Search", langs, q, items, lang });
   } catch (e) {
     logApi("SEARCH", e, { lang, q });
     return res.status(500).send("API error on search");
@@ -147,7 +150,6 @@ router.get("/watch/:code/:ep", async (req, res) => {
   try {
     const langs = await getLangsCached();
 
-    // fetch sekali untuk dapat metadata (name/total/expires_in), tapi JANGAN kirim video url ke view
     const p = await getPlayShortCached(lang, code, ep);
 
     const payloadSafe = {
@@ -157,7 +159,6 @@ router.get("/watch/:code/:ep", async (req, res) => {
       total: Number(p?.total || 0),
       expires: p?.expires ?? null,
       expires_in: p?.expires_in ?? null
-      // video sengaja dihapus (tidak expose)
     };
 
     return res.render("watch", {
@@ -185,10 +186,8 @@ router.get("/api/play/:code/:ep", async (req, res) => {
   const { code, ep } = req.params;
 
   try {
-    // fetch fresh (tanpa cache) untuk auth_key baru
     const payload = await fetchPlayPreferProxy(code, ep, lang);
 
-    // optional: update cache pendek juga
     try {
       cache.set(k("play", lang, code, ep), payload?.data, 1000 * 20);
     } catch (_) {}
