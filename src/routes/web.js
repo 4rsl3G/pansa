@@ -9,6 +9,30 @@ router.use(langMiddleware);
 
 const k = (...p) => p.map(String).join("|");
 
+// Default prefer proxy play (bisa di override via env)
+const PREFER_PROXY_PLAY = String(process.env.PREFER_PROXY_PLAY ?? "true").toLowerCase() !== "false";
+
+/**
+ * Helper: ambil play dari proxy (sesuai curl), fallback ke v1 kalau gagal.
+ * Output: selalu kembalikan payload object (yang punya .data, .cached, .ttl, dst)
+ */
+async function fetchPlayPreferProxy(code, ep, lang) {
+  if (PREFER_PROXY_PLAY && typeof shortmax.getProxyPlay === "function") {
+    try {
+      return await shortmax.getProxyPlay(code, ep, lang);
+    } catch (e) {
+      // fallback ke v1
+      try {
+        return await shortmax.getPlay(code, ep, lang);
+      } catch (e2) {
+        // lempar error asli proxy biar ketauan sumbernya kalau mau
+        throw e;
+      }
+    }
+  }
+  return await shortmax.getPlay(code, ep, lang);
+}
+
 // langs cached 12h
 const getLangsCached = () =>
   cache.wrap(k("langs"), 1000 * 60 * 60 * 12, async () => {
@@ -43,10 +67,12 @@ async function getPlayShortCached(lang, code, ep) {
   const hit = cache.get(key);
   if (hit) return hit;
 
-  const payload = await shortmax.getPlay(code, ep, lang);
+  const payload = await fetchPlayPreferProxy(code, ep, lang);
+
   // cache 20 detik aja supaya aman
-  cache.set(key, payload.data, 1000 * 20);
-  return payload.data;
+  // simpan .data saja biar konsisten dengan pemakaian di SSR watch
+  cache.set(key, payload?.data, 1000 * 20);
+  return payload?.data;
 }
 
 function logApi(scope, e, extra = {}) {
@@ -90,9 +116,17 @@ router.get("/t/:code", async (req, res) => {
   try {
     const langs = await getLangsCached();
     const home = await getHomeCached(lang);
-    const title = (Array.isArray(home) ? home : []).find(x => String(x.code) === String(code)) || null;
+    const title =
+      (Array.isArray(home) ? home : []).find((x) => String(x.code) === String(code)) || null;
+
     const episodes = await getEpisodesCached(lang, code);
-    return res.render("title", { pageTitle: title?.name || "Title", langs, title, code, episodes });
+    return res.render("title", {
+      pageTitle: title?.name || "Title",
+      langs,
+      title,
+      code,
+      episodes
+    });
   } catch (e) {
     logApi("TITLE", e, { lang, code });
     return res.status(500).send("API error on title");
@@ -126,17 +160,30 @@ router.get("/watch/:code/:ep", async (req, res) => {
 /**
  * ✅ API endpoint untuk refresh play URL (dipanggil dari client saat expired/403/buffering)
  * GET /api/play/:code/:ep?lang=en
+ *
+ * Sekarang pakai proxy (kalau tersedia), fallback ke v1.
  */
 router.get("/api/play/:code/:ep", async (req, res) => {
   const lang = (req.query.lang || res.locals.lang || "en").toString();
   const { code, ep } = req.params;
 
   try {
-    // selalu fetch fresh (tanpa cache) untuk auth_key baru
-    const payload = await shortmax.getPlay(code, ep, lang);
-    return res.json({ ok: true, data: payload.data, cached: payload.cached ?? false, ttl: payload.ttl ?? null });
+    // selalu fetch fresh untuk auth_key baru
+    const payload = await fetchPlayPreferProxy(code, ep, lang);
+
+    // (opsional) update cache pendek juga, biar halaman watch ikut kebantu
+    try {
+      cache.set(k("play", lang, code, ep), payload?.data, 1000 * 20);
+    } catch (_) {}
+
+    return res.json({
+      ok: true,
+      data: payload?.data,
+      cached: payload?.cached ?? false,
+      ttl: payload?.ttl ?? null
+    });
   } catch (e) {
-    logApi("API_PLAY_REFRESH", e, { lang, code, ep });
+    logApi("API_PLAY_REFRESH", e, { lang, code, ep, preferProxy: PREFER_PROXY_PLAY });
     return res.status(500).json({ ok: false, error: "Failed to refresh play URL" });
   }
 });
