@@ -1,22 +1,66 @@
 <%
   const p = payload || {};
   const v = p.video || {};
-  const coverSafe = (cover || "").replace(/"/g,'&quot;');
-  const titleSafe = (tname || p.name || "").replace(/"/g,'&quot;');
+
+  const coverStr = String(cover || "");
+  const titleStr = String(tname || p.name || "");
+  const langStr  = String(lang || "en");
+
+  // safe for putting inside double-quoted JS string
+  const jsSafe = (s) => String(s || "").replace(/\\/g, "\\\\").replace(/"/g, '\\"');
+
+  const coverSafe = jsSafe(coverStr);
+  const titleSafe = jsSafe(titleStr);
+  const langSafe  = jsSafe(langStr);
+
+  const src720Safe  = jsSafe(v.video_720 || "");
+  const src1080Safe = jsSafe(v.video_1080 || "");
+  const src480Safe  = jsSafe(v.video_480 || "");
+
+  const total = Number(p.total || 0);
+  const epNum = Number(ep || 1);
+
+  const prevEp = Math.max(1, epNum - 1);
+  const nextEp = (total > 0) ? Math.min(total, epNum + 1) : (epNum + 1);
+
+  const isLast = total > 0 && epNum >= total;
+
+  const prevHref =
+    `/watch/${encodeURIComponent(code)}/${prevEp}` +
+    `?lang=${encodeURIComponent(langStr)}` +
+    `&cover=${encodeURIComponent(coverStr)}` +
+    `&name=${encodeURIComponent(titleStr)}`;
+
+  const nextHref = isLast
+    ? ""
+    : `/watch/${encodeURIComponent(code)}/${nextEp}` +
+      `?lang=${encodeURIComponent(langStr)}` +
+      `&cover=${encodeURIComponent(coverStr)}` +
+      `&name=${encodeURIComponent(titleStr)}`;
+
+  const epsHref = `/t/${encodeURIComponent(code)}?lang=${encodeURIComponent(langStr)}`;
+
+  const refreshUrl =
+    `/api/play/${encodeURIComponent(code)}/${encodeURIComponent(epNum)}` +
+    `?lang=${encodeURIComponent(langStr)}`;
 %>
 
 <section class="wrap pb-14">
   <div class="watchTop" data-aos="fade-up">
     <div class="watchNow">Now playing</div>
-    <div class="watchTitle line-clamp-2"><%= p.name %> <span class="muted">• EP <%= ep %>/<%= p.total || "-" %></span></div>
+    <div class="watchTitle line-clamp-2">
+      <%= p.name %>
+      <span class="muted">• EP <%= epNum %>/<%= total || "-" %></span>
+    </div>
 
     <div class="watchActions">
-      <a class="pill" href="/t/<%= code %>?lang=<%= lang %>"><i class="ri-list-check-2"></i> Episodes</a>
-      <a class="pill" href="/watch/<%= code %>/<%= Math.max(1, ep-1) %>?lang=<%= lang %>&cover=<%= encodeURIComponent(cover||'') %>&name=<%= encodeURIComponent(tname||p.name||'') %>">
+      <a class="pill" href="<%= epsHref %>"><i class="ri-list-check-2"></i> Episodes</a>
+
+      <a class="pill" href="<%= prevHref %>">
         <i class="ri-skip-back-mini-fill"></i>
       </a>
-      <a class="pill" id="btnNextLink"
-         href="/watch/<%= code %>/<%= Math.min((p.total||ep), ep+1) %>?lang=<%= lang %>&cover=<%= encodeURIComponent(cover||'') %>&name=<%= encodeURIComponent(tname||p.name||'') %>">
+
+      <a class="pill" id="btnNextLink" href="<%= nextHref || '#' %>" <%= isLast ? 'aria-disabled="true"' : '' %>>
         <i class="ri-skip-forward-mini-fill"></i>
       </a>
     </div>
@@ -86,16 +130,18 @@
 
 <script>
   window.__PS__ = {
-    lang: "<%= lang %>",
-    code: "<%= code %>",
-    ep: <%= ep %>,
-    total: <%= Number(p.total || 0) %>,
+    lang: "<%- langSafe %>",
+    code: "<%- jsSafe(code) %>",
+    ep: <%= epNum %>,
+    total: <%= total %>,
     title: "<%- titleSafe %>",
     cover: "<%- coverSafe %>",
-    refreshUrl: "/api/play/<%= code %>/<%= ep %>?lang=<%= lang %>",
-    nextUrl: "/watch/<%= code %>/<%= Math.min((p.total||ep), ep+1) %>?lang=<%= lang %>&cover=<%= encodeURIComponent(cover||'') %>&name=<%= encodeURIComponent(tname||p.name||'') %>",
-    src720: "<%= (v.video_720 || '') %>",
-    src1080: "<%= (v.video_1080 || '') %>",
-    src480: "<%= (v.video_480 || '') %>"
+    refreshUrl: "<%- jsSafe(refreshUrl) %>",
+    nextUrl: "<%- jsSafe(nextHref) %>",
+
+    // ✅ URL dari API (langsung)
+    src720: "<%- src720Safe %>",
+    src1080: "<%- src1080Safe %>",
+    src480: "<%- src480Safe %>"
   };
 </script>
