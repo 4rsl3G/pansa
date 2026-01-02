@@ -1,6 +1,7 @@
 <%
   const t = title || {};
   const enc = (v) => encodeURIComponent((v ?? "").toString());
+  const bp = (basePath || "").toString(); // ✅ prefix mount path ("" atau "/shortmax")
 %>
 
 <section class="wrap">
@@ -12,14 +13,20 @@
       <p class="heroDesc line-clamp-4"><%= t.summary || "No summary." %></p>
 
       <div class="heroTags">
-        <% (t.tags || []).slice(0,5).forEach(tag => { %><span class="tagPill"><%= tag %></span><% }) %>
+        <% (t.tags || []).slice(0,5).forEach(tag => { %>
+          <span class="tagPill"><%= tag %></span>
+        <% }) %>
       </div>
 
       <div class="heroBtns">
-        <a class="btnPrimary" href="/watch/<%= code %>/1?lang=<%= lang %>&cover=<%= enc(t.cover||'') %>&name=<%= enc(t.name||'') %>">
+        <a class="btnPrimary"
+           href="<%= bp %>/watch/<%= encodeURIComponent(code) %>/1?lang=<%= enc(lang) %>&cover=<%= enc(t.cover||'') %>&name=<%= enc(t.name||'') %>">
           <i class="ri-play-fill"></i> Play EP 1
         </a>
-        <a class="btnGhost" href="/?lang=<%= lang %>"><i class="ri-home-5-line"></i> Home</a>
+
+        <a class="btnGhost" href="<%= bp %>/?lang=<%= enc(lang) %>">
+          <i class="ri-home-5-line"></i> Home
+        </a>
       </div>
     </div>
   </div>
@@ -32,11 +39,17 @@
   </div>
 
   <div class="epGrid mt-4">
-    <% (episodes || []).slice(0, 80).forEach(e => { %>
+    <% (episodes || []).slice(0, 80).forEach(e => { 
+         const epNum = Number(e.episode || 1);
+    %>
       <a class="epBtn <%= e.locked ? 'is-locked' : '' %>"
-         href="/watch/<%= code %>/<%= e.episode %>?lang=<%= lang %>&cover=<%= enc(t.cover||'') %>&name=<%= enc(t.name||'') %>">
-        <span>EP <%= e.episode %></span>
-        <% if (e.locked) { %><i class="ri-lock-2-line"></i><% } else { %><i class="ri-play-mini-fill"></i><% } %>
+         href="<%= bp %>/watch/<%= encodeURIComponent(code) %>/<%= epNum %>?lang=<%= enc(lang) %>&cover=<%= enc(t.cover||'') %>&name=<%= enc(t.name||'') %>">
+        <span>EP <%= epNum %></span>
+        <% if (e.locked) { %>
+          <i class="ri-lock-2-line"></i>
+        <% } else { %>
+          <i class="ri-play-mini-fill"></i>
+        <% } %>
       </a>
     <% }) %>
   </div>
