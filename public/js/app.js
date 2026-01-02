@@ -44,43 +44,59 @@ function initLazyImages(scope = document) {
     return;
   }
 
-  const io = new IntersectionObserver((entries) => {
-    entries.forEach((e) => {
-      if (!e.isIntersecting) return;
-      loadImg(e.target);
-      io.unobserve(e.target);
-    });
-  }, { rootMargin: "240px" });
+  const io = new IntersectionObserver(
+    (entries) => {
+      entries.forEach((e) => {
+        if (!e.isIntersecting) return;
+        loadImg(e.target);
+        io.unobserve(e.target);
+      });
+    },
+    { rootMargin: "240px" }
+  );
 
   imgs.forEach((img) => io.observe(img));
 }
 
 function initGlobalUI() {
-  $("#btnPulse").off("click").on("click", () => {
-    const el = document.querySelector("header");
-    if (!el || !window.gsap) return;
-    gsap.fromTo(el, { boxShadow: "0 0 0 rgba(255,255,255,0)" }, { boxShadow: "0 0 50px rgba(255,255,255,.10)", duration: 0.45, yoyo: true, repeat: 1 });
-  });
+  $("#btnPulse")
+    .off("click")
+    .on("click", () => {
+      const el = document.querySelector("header");
+      if (!el || !window.gsap) return;
+      gsap.fromTo(
+        el,
+        { boxShadow: "0 0 0 rgba(255,255,255,0)" },
+        { boxShadow: "0 0 50px rgba(255,255,255,.10)", duration: 0.45, yoyo: true, repeat: 1 }
+      );
+    });
 }
 
 /* Continue Watching */
 function loadContinue() {
-  try { return JSON.parse(localStorage.getItem(LS_KEY) || "[]"); }
-  catch { return []; }
+  try {
+    return JSON.parse(localStorage.getItem(LS_KEY) || "[]");
+  } catch {
+    return [];
+  }
 }
 function saveContinue(list) {
   localStorage.setItem(LS_KEY, JSON.stringify(list.slice(0, 50)));
 }
 function upsertContinue(entry) {
   const list = loadContinue();
-  const idx = list.findIndex(x => String(x.code) === String(entry.code) && Number(x.ep) === Number(entry.ep));
+  const idx = list.findIndex(
+    (x) => String(x.code) === String(entry.code) && Number(x.ep) === Number(entry.ep)
+  );
   const next = { ...entry, updatedAt: Date.now() };
   if (idx >= 0) list[idx] = { ...list[idx], ...next };
   else list.unshift(next);
-  list.sort((a,b) => (b.updatedAt||0) - (a.updatedAt||0));
+  list.sort((a, b) => (b.updatedAt || 0) - (a.updatedAt || 0));
   saveContinue(list);
 }
-function clearContinue() { localStorage.removeItem(LS_KEY); }
+function clearContinue() {
+  localStorage.removeItem(LS_KEY);
+}
 
 function initContinueHome() {
   const wrap = document.getElementById("continueRow");
@@ -92,16 +108,20 @@ function initContinueHome() {
   wrap.classList.add("hidden");
   skel.classList.remove("hidden");
 
-  const list = loadContinue().filter(x => x && x.code);
+  const list = loadContinue().filter((x) => x && x.code);
   if (!list.length) {
     skel.classList.add("hidden");
     return;
   }
 
-  grid.innerHTML = list.slice(0, 8).map((x) => {
-    const pct = x.duration ? Math.min(100, Math.round((x.time / x.duration) * 100)) : 0;
-    const href = `/watch/${x.code}/${x.ep}?lang=${encodeURIComponent(x.lang || "en")}&cover=${encodeURIComponent(x.cover||"")}&name=${encodeURIComponent(x.title||"")}`;
-    return `
+  grid.innerHTML = list
+    .slice(0, 8)
+    .map((x) => {
+      const pct = x.duration ? Math.min(100, Math.round((x.time / x.duration) * 100)) : 0;
+      const href = `/watch/${x.code}/${x.ep}?lang=${encodeURIComponent(x.lang || "en")}&cover=${encodeURIComponent(
+        x.cover || ""
+      )}&name=${encodeURIComponent(x.title || "")}`;
+      return `
       <a href="${href}" class="vCard card" style="box-shadow:var(--glow); border-radius:20px; overflow:hidden;">
         <div class="vPoster">
           <img data-src="${x.cover || ""}"
@@ -110,7 +130,7 @@ function initContinueHome() {
           <div class="vShade"></div>
           <div class="vMeta">
             <div class="vName line-clamp-2">${x.title || "Untitled"}</div>
-            <div class="vMini"><span>EP ${x.ep}</span><span>${formatTime(x.time||0)}</span></div>
+            <div class="vMini"><span>EP ${x.ep}</span><span>${formatTime(x.time || 0)}</span></div>
             <div style="margin-top:10px;height:6px;border-radius:999px;background:rgba(255,255,255,.18);overflow:hidden;">
               <div style="height:100%;width:${pct}%;background:rgba(255,255,255,.85)"></div>
             </div>
@@ -118,7 +138,8 @@ function initContinueHome() {
         </div>
       </a>
     `;
-  }).join("");
+    })
+    .join("");
 
   skel.classList.add("hidden");
   wrap.classList.remove("hidden");
@@ -131,7 +152,7 @@ function initContinueHome() {
   });
 }
 
-/* WATCH PLAYER - auto retry + refresh play URL */
+/* WATCH PLAYER - DIRECT EMBED (NO Hls.js) */
 function initWatchPlayer() {
   const data = window.__PS__;
   if (!data) return;
@@ -161,12 +182,17 @@ function initWatchPlayer() {
   const toggleAutoNext = document.getElementById("toggleAutoNext");
   const autoState = document.getElementById("autoState");
 
-  let hls = null;
   let duration = 0;
   let isSeeking = false;
 
   let retryCount = 0;
   let lastAttachAt = 0;
+
+  // watchdog
+  let waitingSince = 0;
+  let lastProgressAt = Date.now();
+  let lastTimeSeen = 0;
+  let watchdogTimer = null;
 
   const initialAuto = (localStorage.getItem(LS_AUTONEXT) ?? "on") === "on";
   let autoNext = initialAuto;
@@ -201,16 +227,22 @@ function initWatchPlayer() {
   }
 
   function pickSrc(q) {
+    // LANGSUNG PAKAI URL DARI API (m3u8)
     if (q === "1080") return data.src1080 || data.src720 || data.src480;
     if (q === "480") return data.src480 || data.src720 || data.src1080;
     return data.src720 || data.src1080 || data.src480;
   }
 
-  function destroyHls() {
-    if (hls) {
-      try { hls.destroy(); } catch {}
-      hls = null;
+  function cleanup() {
+    if (watchdogTimer) {
+      clearInterval(watchdogTimer);
+      watchdogTimer = null;
     }
+    try {
+      v.pause();
+      v.removeAttribute("src");
+      v.load();
+    } catch {}
   }
 
   async function refreshPlayUrl() {
@@ -225,8 +257,37 @@ function initWatchPlayer() {
     return true;
   }
 
+  function startWatchdog() {
+    if (watchdogTimer) clearInterval(watchdogTimer);
+
+    watchdogTimer = setInterval(() => {
+      if (v.paused) return;
+
+      const ct = Number(v.currentTime || 0);
+      const now = Date.now();
+
+      if (ct > lastTimeSeen + 0.05) {
+        lastTimeSeen = ct;
+        lastProgressAt = now;
+        waitingSince = 0;
+        return;
+      }
+
+      // stuck buffering > 8 detik -> refresh & reattach
+      if (waitingSince && now - waitingSince > 8000) {
+        waitingSince = 0;
+        smartRetry("stuck_waiting");
+      }
+
+      // tidak ada progress > 12 detik -> refresh & reattach
+      if (now - lastProgressAt > 12000) {
+        lastProgressAt = now;
+        smartRetry("no_progress");
+      }
+    }, 1000);
+  }
+
   async function smartRetry(reason) {
-    // jangan retry terlalu sering
     const now = Date.now();
     if (now - lastAttachAt < 1200) return;
 
@@ -246,13 +307,13 @@ function initWatchPlayer() {
       await attach(q, true);
       hideToast();
     } catch (e) {
-      showToast("Stream issue", "Refresh failed. Tap Retry.", true);
+      showToast("Stream issue", `Refresh failed (${reason || "retry"}). Tap Retry.`, true);
       setLoading(false);
     }
   }
 
   async function attach(q = "720", keepTime = false) {
-    destroyHls();
+    cleanup();
     setLoading(true, "Attaching stream…");
     lastAttachAt = Date.now();
 
@@ -266,58 +327,35 @@ function initWatchPlayer() {
     const keep = keepTime ? (v.currentTime || 0) : 0;
     const wasPlaying = keepTime ? !v.paused : false;
 
-    // iOS Safari native HLS
-    if (v.canPlayType("application/vnd.apple.mpegurl")) {
-      v.src = src;
-      v.load();
+    // reset timers
+    waitingSince = 0;
+    lastProgressAt = Date.now();
+    lastTimeSeen = keep || 0;
 
-      // restore time after metadata
-      v.onloadedmetadata = () => {
-        duration = v.duration || 0;
-        if (keepTime && keep > 0 && duration > 0) v.currentTime = Math.min(keep, duration - 0.7);
-        setLoading(false);
-        if (wasPlaying) v.play().catch(() => {});
-      };
-
-      return;
-    }
-
-    if (window.Hls && Hls.isSupported()) {
-      hls = new Hls({
-        enableWorker: true,
-        lowLatencyMode: true,
-        backBufferLength: 30,
-        maxBufferLength: 30,
-        maxMaxBufferLength: 60
-      });
-
-      hls.loadSource(src);
-      hls.attachMedia(v);
-
-      hls.on(Hls.Events.MANIFEST_PARSED, () => {
-        setLoading(false);
-        if (keepTime && keep > 0 && duration > 0) v.currentTime = Math.min(keep, duration - 0.7);
-        if (wasPlaying) v.play().catch(() => {});
-      });
-
-      hls.on(Hls.Events.ERROR, (evt, err) => {
-        // kalau fatal → retry
-        const status = err?.response?.code || err?.response?.status || err?.response?.data || null;
-        const is403 = err?.response?.code === 403 || err?.response?.status === 403;
-
-        if (err?.fatal) {
-          // indikasi auth_key expired biasanya 403 / manifestLoadError / fragLoadError
-          smartRetry(is403 ? "403" : (err?.details || "fatal"));
-        }
-      });
-
-      return;
-    }
-
-    // fallback
+    // ⚠️ TANPA Hls.js: hanya mengandalkan native playback
+    // Safari iOS/macOS akan bisa; Chrome biasanya tidak untuk .m3u8
     v.src = src;
     v.load();
-    setTimeout(() => setLoading(false), 450);
+
+    v.onloadedmetadata = () => {
+      duration = v.duration || 0;
+      if (tDur) tDur.textContent = formatTime(duration);
+      if (keepTime && keep > 0 && duration > 0) {
+        try {
+          v.currentTime = Math.min(keep, duration - 0.7);
+        } catch {}
+      }
+      setLoading(false);
+      startWatchdog();
+      if (wasPlaying) v.play().catch(() => {});
+    };
+
+    // kalau metadata tidak pernah ke-load (mis. Chrome), kasih hint
+    setTimeout(() => {
+      if (!duration && !v.duration && !v.error && !v.paused) {
+        // do nothing
+      }
+    }, 2000);
   }
 
   function setPlayIcon() {
@@ -370,7 +408,9 @@ function initWatchPlayer() {
     const keep = v.currentTime || 0;
     const wasPlaying = !v.paused;
     await attach(q, true);
-    try { v.currentTime = keep; } catch {}
+    try {
+      v.currentTime = keep;
+    } catch {}
     if (wasPlaying) v.play().catch(() => {});
   });
 
@@ -404,17 +444,30 @@ function initWatchPlayer() {
   });
 
   // seek
-  seek?.addEventListener("input", () => { isSeeking = true; });
+  seek?.addEventListener("input", () => {
+    isSeeking = true;
+  });
   seek?.addEventListener("change", () => {
     const val = Number(seek.value || 0) / 1000;
-    if (duration > 0) v.currentTime = val * duration;
+    const d = duration || v.duration || 0;
+    if (d > 0) v.currentTime = val * d;
     isSeeking = false;
   });
 
   // buffering events
   v.addEventListener("loadstart", () => setLoading(true, "Loading…"));
-  v.addEventListener("waiting", () => setLoading(true, "Buffering…"));
-  v.addEventListener("playing", () => setLoading(false));
+  v.addEventListener("waiting", () => {
+    setLoading(true, "Buffering…");
+    if (!waitingSince) waitingSince = Date.now();
+  });
+  v.addEventListener("stalled", () => {
+    if (!waitingSince) waitingSince = Date.now();
+  });
+  v.addEventListener("playing", () => {
+    setLoading(false);
+    waitingSince = 0;
+    lastProgressAt = Date.now();
+  });
   v.addEventListener("canplay", () => setLoading(false));
 
   v.addEventListener("loadedmetadata", () => {
@@ -424,15 +477,27 @@ function initWatchPlayer() {
 
   v.addEventListener("timeupdate", () => {
     const cur = v.currentTime || 0;
-    if (!isSeeking && duration > 0 && seek) seek.value = String(Math.floor((cur / duration) * 1000));
+    const d = duration || v.duration || 0;
+
+    if (cur > lastTimeSeen + 0.05) {
+      lastTimeSeen = cur;
+      lastProgressAt = Date.now();
+      waitingSince = 0;
+    }
+
+    if (!isSeeking && d > 0 && seek) seek.value = String(Math.floor((cur / d) * 1000));
     if (tCur) tCur.textContent = formatTime(cur);
 
-    // save throttled
     saveProgressThrottled();
   });
 
-  v.addEventListener("pause", () => { setPlayIcon(); saveProgress(); });
+  v.addEventListener("pause", () => {
+    setPlayIcon();
+    saveProgress();
+  });
   v.addEventListener("play", () => setPlayIcon());
+
+  // kalau error, coba refresh URL
   v.addEventListener("error", () => smartRetry("video_error"));
 
   v.addEventListener("ended", () => {
@@ -445,13 +510,14 @@ function initWatchPlayer() {
 
   // restore progress if exists
   const list = loadContinue();
-  const found = list.find(x => String(x.code) === String(data.code) && Number(x.ep) === Number(data.ep));
+  const found = list.find(
+    (x) => String(x.code) === String(data.code) && Number(x.ep) === Number(data.ep)
+  );
   const restoreTime = found?.time || 0;
 
   // start attach
   attach("720", false).then(() => {
     setPlayIcon();
-    // restore after attach
     if (restoreTime > 5) {
       setTimeout(() => {
         try {
@@ -467,25 +533,38 @@ function initWatchPlayer() {
 function initBarba() {
   if (!window.barba) return;
   barba.init({
-    transitions: [{
-      async leave(data) {
-        showOverlay();
-        if (window.gsap) await gsap.to(data.current.container, { opacity: 0, y: -8, duration: 0.18, ease: "power2.in" });
-      },
-      enter(data) {
-        if (window.gsap) gsap.fromTo(data.next.container, { opacity: 0, y: 10 }, { opacity: 1, y: 0, duration: 0.26, ease: "power2.out" });
-      },
-      afterEnter() {
-        hideOverlay();
-        initAOS();
-        initGlobalUI();
-        initLazyImages(document);
-        initContinueHome();
-        initWatchPlayer();
-        if (window.AOS) AOS.refreshHard();
-        window.scrollTo({ top: 0, behavior: "instant" });
+    transitions: [
+      {
+        async leave(data) {
+          showOverlay();
+          if (window.gsap)
+            await gsap.to(data.current.container, {
+              opacity: 0,
+              y: -8,
+              duration: 0.18,
+              ease: "power2.in"
+            });
+        },
+        enter(data) {
+          if (window.gsap)
+            gsap.fromTo(
+              data.next.container,
+              { opacity: 0, y: 10 },
+              { opacity: 1, y: 0, duration: 0.26, ease: "power2.out" }
+            );
+        },
+        afterEnter() {
+          hideOverlay();
+          initAOS();
+          initGlobalUI();
+          initLazyImages(document);
+          initContinueHome();
+          initWatchPlayer();
+          if (window.AOS) AOS.refreshHard();
+          window.scrollTo({ top: 0, behavior: "instant" });
+        }
       }
-    }]
+    ]
   });
 }
 
