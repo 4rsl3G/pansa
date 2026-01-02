@@ -12,20 +12,26 @@ const k = (...p) => p.map(String).join("|");
 // Default prefer proxy play (bisa di override via env)
 const PREFER_PROXY_PLAY = String(process.env.PREFER_PROXY_PLAY ?? "true").toLowerCase() !== "false";
 
+function safeDecode(s) {
+  try {
+    return decodeURIComponent(String(s || ""));
+  } catch {
+    return String(s || "");
+  }
+}
+
 /**
  * Helper: ambil play dari proxy (sesuai curl), fallback ke v1 kalau gagal.
- * Output: selalu kembalikan payload object (yang punya .data, .cached, .ttl, dst)
+ * Output: payload object (yang punya .data, .cached, .ttl, dst)
  */
 async function fetchPlayPreferProxy(code, ep, lang) {
   if (PREFER_PROXY_PLAY && typeof shortmax.getProxyPlay === "function") {
     try {
       return await shortmax.getProxyPlay(code, ep, lang);
     } catch (e) {
-      // fallback ke v1
       try {
         return await shortmax.getPlay(code, ep, lang);
       } catch (e2) {
-        // lempar error asli proxy biar ketauan sumbernya kalau mau
         throw e;
       }
     }
@@ -69,8 +75,7 @@ async function getPlayShortCached(lang, code, ep) {
 
   const payload = await fetchPlayPreferProxy(code, ep, lang);
 
-  // cache 20 detik aja supaya aman
-  // simpan .data saja biar konsisten dengan pemakaian di SSR watch
+  // cache 20 detik aja supaya aman (simpan .data)
   cache.set(key, payload?.data, 1000 * 20);
   return payload?.data;
 }
@@ -125,7 +130,8 @@ router.get("/t/:code", async (req, res) => {
       langs,
       title,
       code,
-      episodes
+      episodes,
+      lang
     });
   } catch (e) {
     logApi("TITLE", e, { lang, code });
@@ -133,23 +139,36 @@ router.get("/t/:code", async (req, res) => {
   }
 });
 
-// Watch page (SSR)
+// ✅ Watch page (SSR) — tidak expose video URL di HTML
 router.get("/watch/:code/:ep", async (req, res) => {
   const lang = res.locals.lang || "en";
   const { code, ep } = req.params;
 
   try {
     const langs = await getLangsCached();
-    const payload = await getPlayShortCached(lang, code, ep);
+
+    // fetch sekali untuk dapat metadata (name/total/expires_in), tapi JANGAN kirim video url ke view
+    const p = await getPlayShortCached(lang, code, ep);
+
+    const payloadSafe = {
+      id: p?.id || null,
+      name: p?.name || "",
+      episode: Number(p?.episode || ep),
+      total: Number(p?.total || 0),
+      expires: p?.expires ?? null,
+      expires_in: p?.expires_in ?? null
+      // video sengaja dihapus (tidak expose)
+    };
 
     return res.render("watch", {
-      pageTitle: `${payload?.name || "Watch"} • EP ${ep}`,
+      pageTitle: `${payloadSafe?.name || "Watch"} • EP ${ep}`,
       langs,
+      lang,
       code,
       ep: Number(ep),
-      payload,
-      cover: (req.query.cover || "").toString(),
-      tname: (req.query.name || "").toString()
+      payload: payloadSafe,
+      cover: safeDecode(req.query.cover),
+      tname: safeDecode(req.query.name)
     });
   } catch (e) {
     logApi("WATCH", e, { lang, code, ep });
@@ -158,20 +177,18 @@ router.get("/watch/:code/:ep", async (req, res) => {
 });
 
 /**
- * ✅ API endpoint untuk refresh play URL (dipanggil dari client saat expired/403/buffering)
+ * ✅ API endpoint untuk ambil play URL (dipanggil dari client via jQuery)
  * GET /api/play/:code/:ep?lang=en
- *
- * Sekarang pakai proxy (kalau tersedia), fallback ke v1.
  */
 router.get("/api/play/:code/:ep", async (req, res) => {
   const lang = (req.query.lang || res.locals.lang || "en").toString();
   const { code, ep } = req.params;
 
   try {
-    // selalu fetch fresh untuk auth_key baru
+    // fetch fresh (tanpa cache) untuk auth_key baru
     const payload = await fetchPlayPreferProxy(code, ep, lang);
 
-    // (opsional) update cache pendek juga, biar halaman watch ikut kebantu
+    // optional: update cache pendek juga
     try {
       cache.set(k("play", lang, code, ep), payload?.data, 1000 * 20);
     } catch (_) {}
@@ -183,8 +200,8 @@ router.get("/api/play/:code/:ep", async (req, res) => {
       ttl: payload?.ttl ?? null
     });
   } catch (e) {
-    logApi("API_PLAY_REFRESH", e, { lang, code, ep, preferProxy: PREFER_PROXY_PLAY });
-    return res.status(500).json({ ok: false, error: "Failed to refresh play URL" });
+    logApi("API_PLAY", e, { lang, code, ep, preferProxy: PREFER_PROXY_PLAY });
+    return res.status(500).json({ ok: false, error: "Failed to load play URL" });
   }
 });
 
