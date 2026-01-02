@@ -1,6 +1,5 @@
 <%
   const p = payload || {};
-  const v = p.video || {};
 
   const coverStr = String(cover || "");
   const titleStr = String(tname || p.name || "");
@@ -13,16 +12,11 @@
   const titleSafe = jsSafe(titleStr);
   const langSafe  = jsSafe(langStr);
 
-  const src720Safe  = jsSafe(v.video_720 || "");
-  const src1080Safe = jsSafe(v.video_1080 || "");
-  const src480Safe  = jsSafe(v.video_480 || "");
-
   const total = Number(p.total || 0);
   const epNum = Number(ep || 1);
 
   const prevEp = Math.max(1, epNum - 1);
   const nextEp = (total > 0) ? Math.min(total, epNum + 1) : (epNum + 1);
-
   const isLast = total > 0 && epNum >= total;
 
   const prevHref =
@@ -40,7 +34,8 @@
 
   const epsHref = `/t/${encodeURIComponent(code)}?lang=${encodeURIComponent(langStr)}`;
 
-  const refreshUrl =
+  // ✅ endpoint untuk ambil play url via jQuery (tidak expose di HTML)
+  const apiPlayUrl =
     `/api/play/${encodeURIComponent(code)}/${encodeURIComponent(epNum)}` +
     `?lang=${encodeURIComponent(langStr)}`;
 %>
@@ -136,12 +131,7 @@
     total: <%= total %>,
     title: "<%- titleSafe %>",
     cover: "<%- coverSafe %>",
-    refreshUrl: "<%- jsSafe(refreshUrl) %>",
-    nextUrl: "<%- jsSafe(nextHref) %>",
-
-    // ✅ URL dari API (langsung)
-    src720: "<%- src720Safe %>",
-    src1080: "<%- src1080Safe %>",
-    src480: "<%- src480Safe %>"
+    apiPlayUrl: "<%- jsSafe(apiPlayUrl) %>",
+    nextUrl: "<%- jsSafe(nextHref) %>"
   };
 </script>
